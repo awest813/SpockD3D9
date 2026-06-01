@@ -1,6 +1,6 @@
 # MoltenVK Capabilities on macOS
 
-SpockD3D9 queries Vulkan (MoltenVK) at runtime for format and feature support. This document summarizes what D3D9 applications can expect on macOS, how SpockD3D9 reports caps, and where MoltenVK or Metal impose limits.
+Reaching **full compatibility with Windows D3D9 games on macOS** means working within what MoltenVK and Metal actually support. SpockD3D9 queries Vulkan (MoltenVK) at runtime for format and feature support. This document summarizes what D3D9 applications can expect on macOS, how SpockD3D9 reports caps, and where MoltenVK or Metal impose limits.
 
 For the upstream MoltenVK feature list and known Vulkan gaps, see the [MoltenVK Runtime User Guide](https://github.com/KhronosGroup/MoltenVK/blob/master/Docs/MoltenVK_Runtime_UserGuide.md) and [supported Vulkan extensions](https://github.com/KhronosGroup/MoltenVK#supported-vulkan-features).
 

@@ -1,10 +1,10 @@
 # SpockD3D9 Compatibility Matrix
 
-D3D9 applications and games targeting macOS via SpockD3D9 (`libdxvk_d3d9.dylib`). This table tracks known-good titles, broken cases, and suggested `dxvk.conf` profiles.
+SpockD3D9 is working toward **full compatibility with Windows D3D9 games on macOS**. This table tracks progress toward that goal — known-good titles, broken cases, and suggested `dxvk.conf` profiles for the D3D9 applications and games running on macOS via SpockD3D9 (`libdxvk_d3d9.dylib`).
 
-SpockD3D9 supports two usage paths:
-1. **Native ports** — applications link `libdxvk_d3d9.dylib` directly using SDL2/SDL3/GLFW.
-2. **Windows game compatibility** — a wrapper or translation layer hosts Windows game logic and routes D3D9 calls through SpockD3D9.
+Compatibility is reached through two usage paths, both serving the same goal:
+1. **Native ports** — applications link `libdxvk_d3d9.dylib` directly using SDL2/SDL3/GLFW (the translation foundation, working today).
+2. **Windows game hosting** — a wrapper or translation layer hosts Windows game logic and routes its `d3d9.dll` calls through SpockD3D9 (the path to unmodified Windows games, under development).
 
 **Status legend**
 

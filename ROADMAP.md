@@ -1,15 +1,17 @@
 # SpockD3D9 Roadmap
 
-macOS D3D9 translation layer — D3D9 API calls translated to Vulkan (MoltenVK → Metal). This document tracks what is done, what is in progress, and what remains for production-ready game compatibility.
+**Mission: full compatibility with Windows D3D9 games on macOS.** SpockD3D9 translates D3D9 API calls to Vulkan (MoltenVK → Metal) so that Windows Direct3D 9 titles can ultimately run on Apple hardware. This document tracks what is done, what is in progress, and what remains to get there — from the native translation library, through the Win32 compatibility shims and Windows game hosting, to the first retail title (Fallout 3).
 
 ## Goals
 
-- Ship `libdxvk_d3d9.dylib` for Apple Silicon (arm64) and Intel Mac (x86_64)
-- Support SDL2, SDL3, and GLFW for window/surface integration
-- Default builds include **D3D9 only** (D3D8/10/11/DXGI disabled in `meson_options.txt`)
+The overarching goal is **full compatibility with Windows D3D9 games on macOS**. It breaks down into:
+
+- **Run unmodified Windows D3D9 games on macOS** — close the Win32 compatibility gaps and provide (or integrate with) a host/wrapper layer that routes a game's `d3d9.dll` calls into SpockD3D9
+- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the first retail title, proving the full path end to end
+- Ship a rock-solid native `libdxvk_d3d9.dylib` for Apple Silicon (arm64) and Intel Mac (x86_64) — the translation foundation everything else builds on
+- Support SDL2, SDL3, and GLFW for window/surface integration (the native replacement for Win32 windowing)
 - Optimize for Apple tiler GPUs via MoltenVK detection and upstream tiler heuristics
-- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the primary target title
-- Close Win32 compatibility gaps needed for Windows game hosting
+- Keep default builds **D3D9-only** (D3D8/10/11/DXGI disabled in `meson_options.txt`) to stay focused on the target API
 
 ## Architecture
 

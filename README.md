@@ -6,12 +6,14 @@ This is a focused fork of [DXVK](https://github.com/doitsujin/dxvk), stripped do
 
 ## Project Direction
 
-SpockD3D9 is working toward **full compatibility with Windows D3D9 games on macOS**, including retail titles like Fallout 3 (Steam). The project has two complementary goals:
+SpockD3D9's north-star goal is **full compatibility with Windows D3D9 games on macOS** — running real retail titles like Fallout 3 (Steam) on Apple hardware, with the D3D9 rendering path translated natively to Metal via Vulkan/MoltenVK. Everything in this repository is a step toward that goal.
 
-1. **Native D3D9 port library** — applications (or wrapper layers) link `libdxvk_d3d9.dylib` directly, using SDL2/SDL3/GLFW for windowing instead of Win32. This path works today for native ports and custom renderers.
-2. **Windows D3D9 game compatibility** — through a wrapper or translation layer that hosts Windows game logic and routes D3D9 calls through SpockD3D9. This path requires closing Win32 compatibility gaps and validating against real game titles.
+The work happens in two layers:
 
-The primary compatibility target is **Fallout 3 (Steam, Windows, D3D9 / Gamebryo engine)**. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-title tracker and [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed Fallout 3 compatibility checklist.
+1. **Native D3D9 → Vulkan translation library** (the foundation) — `libdxvk_d3d9.dylib` implements the D3D9 API and translates it to Vulkan (then Metal), using SDL2/SDL3/GLFW for windowing instead of Win32. This layer works today for native ports and custom renderers, and is the engine every hosted Windows game will ultimately render through.
+2. **Windows D3D9 game hosting** (the remaining gap) — a wrapper or translation layer that hosts Windows game logic and routes its `d3d9.dll` calls into SpockD3D9. This layer is under development and is what closes the gap to running unmodified Windows games; it depends on the Win32 compatibility shims tracked in [ROADMAP.md](ROADMAP.md) (Milestone E).
+
+The first retail compatibility target — the beachhead that proves the full path end to end — is **Fallout 3 (Steam, Windows, D3D9 / Gamebryo engine)**. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-title tracker and [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed Fallout 3 compatibility checklist.
 
 ## Supported Platforms
 
