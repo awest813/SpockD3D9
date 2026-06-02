@@ -24,13 +24,13 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 
 | Title | Status | Engine / API | Path | Notes | Detailed tracker |
 |-------|--------|--------------|------|-------|-----------------|
-| **Fallout 3 (Steam, Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Primary target title; requires Win32 shim + wrapper layer | [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) |
+| **Fallout 3 (Steam, Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Primary target; execution model decided ([Wine-family host + `d3d9.dll` override](docs/FALLOUT3_EXECUTION_MODEL.md)), profile shipped — awaiting a PE `d3d9.dll` build | [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) |
 
 ### Fallout 3 — key compatibility areas
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Boot / device creation | **Blocked** | Needs wrapper layer to host Windows binary and route D3D9 calls |
+| Boot / device creation | **Blocked** | Host model decided (Wine-family + `d3d9.dll` override); blocked on the PE `d3d9.dll` build that a Wine host can load |
 | Rendering (fixed-function + SM3) | **Untested** | Gamebryo uses mixed fixed-function and shader paths |
 | Fullscreen / resolution switching | **Untested** | Expects `Reset` / mode enumeration; SpockD3D9 supports this via WSI |
 | Input (keyboard / mouse / gamepad) | **Blocked** | Windows binary uses DirectInput / Win32 messages |

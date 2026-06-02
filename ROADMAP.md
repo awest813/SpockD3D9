@@ -126,17 +126,18 @@ Close gaps in `src/util/util_win32_compat.h` and related native shims needed for
 
 ### Milestone F — Fallout 3 compatibility
 
-Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. See [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed checklist.
+Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The execution model is now decided — a **Wine-family host with SpockD3D9 as a `d3d9.dll` override** ([docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md)), which unblocks the rest of the milestone. See [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed checklist.
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Define execution model (wrapper / translation layer) | Not started | Decide how Windows binary is hosted on macOS |
+| Define execution model (wrapper / translation layer) | **Done** | Wine-family host + SpockD3D9 `d3d9.dll` override; see [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
+| Build SpockD3D9 as a PE `d3d9.dll` (Wine override) | Not started | MinGW cross-compile target; optional, non-default Meson config — the immediate prerequisite created by the execution-model decision |
 | D3D9 device creation (Gamebryo) | Not started | Validate `Direct3DCreate9` → device → swapchain path |
 | Shader compilation (SM2/SM3 + fixed-function) | Not started | Gamebryo uses mixed paths; test DXSO → SPIR-V → MSL chain |
 | Texture format support (DXT1–5, depth) | Not started | Verify BCn + D24S8 on MoltenVK |
 | Fullscreen / resolution enumeration | Not started | `EnumAdapterModes` → `Reset` cycle |
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
-| `dxvk.conf` Fallout 3 profile | Not started | Title-specific quirk configuration |
+| `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
 | Boot-to-menu validation | Not started | First end-to-end milestone |
 | In-game rendering validation | Not started | Outdoor + interior + NPC + effects |
 | Save / load stability | Not started | Requires wrapper filesystem support |

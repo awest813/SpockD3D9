@@ -28,3 +28,16 @@ jobs:
           -Isrc/util -Iinclude/native/windows \
           tests/util/test_win32_compat.cpp -o test_win32_compat_tsan
         ./test_win32_compat_tsan
+
+  conf-profiles:
+    runs-on: ubuntu-latest
+    name: dxvk.conf profiles
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Title profiles (e.g. tools/fallout3/fallout3.dxvk.conf) must only set keys
+    # that SpockD3D9 documents in the repository-root dxvk.conf. This guard is
+    # hermetic — it needs only the Python standard library, no Vulkan/SDL/build.
+    - name: Validate shipped dxvk.conf profiles
+      run: python3 tests/conf/test_dxvk_conf_profiles.py
