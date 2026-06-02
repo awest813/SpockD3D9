@@ -26,34 +26,53 @@ windowing (enumerated in [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md#non-d3d9-depend
 SpockD3D9 does not, and should not, reimplement that surface: it is squarely
 out of scope per the [ROADMAP](../ROADMAP.md#out-of-scope-default-builds).
 
-The host and the translator are therefore two separable concerns. The decision
-below is only about the **host**; the translator is and remains SpockD3D9.
+The host and the translator are therefore two separable concerns. This decision
+settles SpockD3D9's posture toward both: the project stays **native-first**, owns
+only the **translator**, and emits an **optional** PE artifact that an external
+host can load. It deliberately does **not** commit the project to any specific
+Windows host.
 
 ## Options considered
 
-| # | Approach | Verdict |
-|---|----------|---------|
-| 1 | **Wine-family host + SpockD3D9 as a `d3d9.dll` override** | **Chosen** |
-| 2 | Custom lightweight wrapper (in-house PE loader + Win32 shims) | Rejected |
-| 3 | CrossOver / Apple Game Porting Toolkit specifically | Folded into #1 as recommended hosts |
-| 4 | Native source port of Fallout 3 | Rejected (source unavailable) |
+| # | Approach | Stance |
+|---|----------|--------|
+| 1 | External Wine-family host (Wine / CrossOver / GPTK) consuming a SpockD3D9 `d3d9.dll` override | **Supported as a downstream consumer** of the optional PE build — not an officially targeted platform |
+| 2 | Custom lightweight wrapper (in-house PE loader + Win32 surface) | Rejected |
+| 3 | Native source port of Fallout 3 | Rejected (source unavailable) |
 
-### Why Wine-family hosting (option 1)
+### What SpockD3D9 commits to
 
-* **The host problem is already solved.** Wine provides a battle-tested PE
-  loader and the entire non-D3D9 Win32 surface Fallout 3 needs — DirectInput,
-  DirectSound, filesystem, registry, threading, and `HWND` windowing. Every one
-  of the "Non-D3D9 dependencies" rows becomes *provided by the host* instead of
-  *to be built*.
-* **It is the proven shape on macOS.** Apple's own
+* **The native `libdxvk_d3d9.dylib` stays the canonical, supported artifact.**
+  Everyone who wants the native stack — direct linkers, SDL/GLFW ports — is
+  unaffected by anything below. The default build, dependency graph, and install
+  layout do not change.
+* **SpockD3D9's role is strictly the translator** (D3D9 → Vulkan). It does not
+  reimplement the non-D3D9 Win32 surface; that is squarely out of scope per the
+  [ROADMAP](../ROADMAP.md#out-of-scope-default-builds).
+* **A Windows-PE `d3d9.dll` is emitted behind an optional, non-default Meson
+  target**, so that *some* external host can load SpockD3D9 as a DLL override —
+  without perturbing the native path. This is the only new build product the
+  decision introduces, and it is opt-in.
+
+### Why hosting is delegated to external hosts (and not committed to one)
+
+* **The host problem is already solved elsewhere.** A Wine-family runtime
+  provides a battle-tested PE loader and the entire non-D3D9 Win32 surface
+  Fallout 3 needs — DirectInput, DirectSound, filesystem, registry, threading,
+  and `HWND` windowing. Every "Non-D3D9 dependencies" row becomes *provided by
+  the host* instead of *to be built*. SpockD3D9 should consume that, not rebuild
+  it.
+* **The DLL-override contract is established.** `WINEDLLOVERRIDES="d3d9=n,b"` is
+  exactly how DXVK is consumed today; emitting a PE `d3d9.dll` lets SpockD3D9
+  slot into it. We adopt an existing integration shape rather than inventing one.
+* **But no single host is blessed.** GPTK's story may keep evolving, and native
+  DX9 / DXVK / other shim layers have different trade-offs. Locking the project
+  to one host would imply a stronger ecosystem bet than emitting a PE artifact
+  actually requires. Wine, CrossOver, and Apple's
   [Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/)
-  is Wine + a D3D translation layer running over **MoltenVK → Metal**. We slot
-  SpockD3D9 into the D3D9 slot that GPTK fills with D3DMetal / upstream DXVK.
-  CrossOver and vanilla Wine + DXVK on Linux follow the identical pattern. We
-  are adopting an established integration contract, not inventing one.
-* **It keeps SpockD3D9 doing only what it is good at.** The DLL-override
-  contract (`WINEDLLOVERRIDES="d3d9=n,b"`) is exactly how DXVK is consumed today.
-  SpockD3D9 stays a drop-in `d3d9` implementation; the host owns everything else.
+  (Wine + a D3D layer over MoltenVK → Metal) are therefore treated as
+  *anticipated downstream consumers* of the optional PE build — illustrative
+  examples, not first-class supported platforms.
 
 ### Why *not* a custom wrapper (option 2)
 
@@ -69,37 +88,49 @@ decision keeps that boundary.
 ### Addressing the "duplicates upstream DXVK" concern
 
 [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md) flagged that "upstream DXVK already
-works with Wine." True — but Wine is the *host*, and the *translator* under it
-is interchangeable. SpockD3D9's differentiation is precisely in the translator:
-MoltenVK loader auto-discovery, `VK_DRIVER_ID_MOLTENVK` tiler heuristics
-(`dxvk.tilerMode`), Apple-honest format/MSAA caps, and a D3D9-only build. Running
-*under* Wine does not duplicate upstream DXVK any more than upstream DXVK
-duplicates Wine — they occupy different layers.
+works with Wine." True — but the host is interchangeable, and the *translator*
+under it is where SpockD3D9 lives. SpockD3D9's differentiation is precisely
+there: MoltenVK loader auto-discovery, `VK_DRIVER_ID_MOLTENVK` tiler heuristics
+(`dxvk.tilerMode`), Apple-honest format/MSAA caps, and a D3D9-only build.
+Emitting a PE `d3d9.dll` so a host can load that translator does not duplicate
+upstream DXVK any more than upstream DXVK duplicates Wine — they occupy
+different layers.
 
 ## Decision
 
-> **Host Windows D3D9 games on macOS with a Wine-family runtime (vanilla Wine,
-> CrossOver, or Apple's Game Porting Toolkit), and consume SpockD3D9 as a
-> `d3d9.dll` DLL override. SpockD3D9 translates D3D9 → Vulkan; Wine's
-> `winevulkan` + MoltenVK carry Vulkan → Metal.**
+> **SpockD3D9 remains native-first. The `libdxvk_d3d9.dylib` is the canonical,
+> supported artifact, and SpockD3D9's role is strictly the D3D9 → Vulkan
+> translator. To enable Windows game hosting without perturbing that, the
+> project additionally emits a Windows-PE `d3d9.dll` behind an optional,
+> non-default Meson target. Hosting is delegated to external Windows hosts
+> (e.g. Wine, CrossOver, Apple's Game Porting Toolkit), which are treated as
+> downstream consumers of that optional artifact — no single host is an
+> officially targeted platform at this time.**
 
 ```
-┌──────────────────────────────┐
-│  Fallout 3 (Windows .exe)     │
-├──────────────────────────────┤
-│  Wine / CrossOver / GPTK      │  PE loader + DirectInput, DirectSound,
-│  (the host)                   │  filesystem, registry, threads, HWND
-│      │ d3d9.dll override       │
-│      ▼                         │
-│  SpockD3D9 (PE d3d9.dll)      │  D3D9 → Vulkan   ← the translator
-├──────────────────────────────┤
-│  winevulkan → MoltenVK        │  Vulkan → Metal
-├──────────────────────────────┤
-│  Metal (Apple GPU)            │
-└──────────────────────────────┘
+┌──────────────────────────────────┐
+│  Fallout 3 (Windows .exe)         │
+├──────────────────────────────────┤
+│  Any external Windows host        │  PE loader + DirectInput, DirectSound,
+│  (Wine / CrossOver / GPTK / …)    │  filesystem, registry, threads, HWND
+│      │ d3d9.dll override           │  — not committed to by this project
+│      ▼                             │
+│  SpockD3D9 (optional PE d3d9.dll) │  D3D9 → Vulkan   ← the translator
+├──────────────────────────────────┤
+│  host's Vulkan → MoltenVK         │  Vulkan → Metal
+├──────────────────────────────────┤
+│  Metal (Apple GPU)                │
+└──────────────────────────────────┘
+
+(unchanged: native ports link libdxvk_d3d9.dylib directly via SDL/GLFW —
+ the default, supported path; none of the above affects it.)
 ```
 
 ## Consequences
+
+**Unaffected (the supported path):** the native `libdxvk_d3d9.dylib` build,
+its dependency graph, and its install layout are unchanged. Native ports and
+direct linkers see nothing new.
 
 **Unblocked now (this change):**
 
@@ -108,26 +139,28 @@ duplicates Wine — they occupy different layers.
   validated in CI against the documented option set
   (`tests/conf/test_dxvk_conf_profiles.py`).
 * A host setup / launch guide at
-  [`tools/fallout3/README.md`](../tools/fallout3/README.md).
+  [`tools/fallout3/README.md`](../tools/fallout3/README.md), framing hosts as
+  examples rather than blessed targets.
 
 **New prerequisite this decision creates (the next active task):**
 
-* **Build SpockD3D9 as a PE `d3d9.dll`.** The native default build emits a
-  `.dylib`; a Wine DLL override requires a Windows-PE `d3d9.dll`
-  (MinGW cross-compile). The DXVK upstream the fork is based on already supports
-  this target; the task is to re-introduce it as an **optional, non-default**
-  Meson configuration (`enable_d3d9` PE output) without disturbing the native
-  dylib that the rest of the project depends on. Tracked in
+* **Emit SpockD3D9 as an experimental PE `d3d9.dll`.** An external host loads a
+  Windows-PE `d3d9.dll`, not a `.dylib`, so one must be produced (MinGW
+  cross-compile). The DXVK upstream the fork is based on already supports this
+  target; the task is to wire it up as an **optional, opt-in, non-default**
+  Meson target — explicitly experimental, and *not* part of the default
+  configuration, install layout, or "blessed" build — so it cannot perturb the
+  native dependency graph. Tracked in
   [ROADMAP.md](../ROADMAP.md#milestone-f--fallout-3-compatibility).
 
-**Out of scope (provided by the host, not SpockD3D9):** DirectInput,
+**Out of scope (provided by whichever host, not SpockD3D9):** DirectInput,
 DirectSound / XAudio2, Win32 filesystem, registry, and `HWND` windowing. If a
-specific Fallout 3 issue traces to one of these, it is a host (Wine) bug or
+specific Fallout 3 issue traces to one of these, it is a host bug or
 configuration item, not a SpockD3D9 task.
 
 ## References
 
 * [Fallout 3 compatibility checklist](FALLOUT3_COMPAT.md)
 * [MoltenVK capabilities on macOS](MOLTENVK_CAPABILITIES.md)
-* [Apple Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/)
+* [Apple Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/) — one anticipated downstream consumer, not a committed target
 * [DXVK DLL overrides under Wine](https://github.com/doitsujin/dxvk#how-to-use)

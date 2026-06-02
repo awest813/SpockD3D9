@@ -21,17 +21,21 @@ Fallout 3 is a Windows `.exe`. To run it on macOS with SpockD3D9, a **wrapper or
 3. Translate Win32 windowing (HWND) to SDL2/SDL3/GLFW windows
 4. Provide stubs or implementations for non-D3D9 APIs (DirectInput, DirectSound, filesystem)
 
-**Decision (2026-06): Wine-family host + SpockD3D9 as a `d3d9.dll` override.**
-A Wine-family runtime (vanilla Wine, CrossOver, or Apple's Game Porting Toolkit)
-hosts the PE and provides the non-D3D9 Win32 surface; SpockD3D9 is loaded as the
-`d3d9` DLL override and translates D3D9 → Vulkan, with `winevulkan` + MoltenVK
-carrying Vulkan → Metal. Full rationale, the options table, and consequences are
+**Decision (2026-06): native-first translator + optional, opt-in PE `d3d9.dll`;
+hosting delegated to external hosts, none committed to.** SpockD3D9 keeps the
+native `libdxvk_d3d9.dylib` as its canonical, supported artifact and owns only
+the D3D9 → Vulkan translation. To enable Windows game hosting without perturbing
+that, it additionally emits a Windows-PE `d3d9.dll` behind an **optional,
+non-default** Meson target. An external Windows host (e.g. Wine, CrossOver, or
+Apple's Game Porting Toolkit — treated as downstream consumers, not officially
+targeted platforms) loads that DLL as a `d3d9` override and provides the
+non-D3D9 Win32 surface. Full rationale, the options table, and consequences are
 in [FALLOUT3_EXECUTION_MODEL.md](FALLOUT3_EXECUTION_MODEL.md). Host setup and the
 title profile live in [`tools/fallout3/`](../tools/fallout3/).
 
-**Next prerequisite this unlocks:** build SpockD3D9 as a PE `d3d9.dll` (MinGW
-cross-compile) so a Wine host can load it — the default build emits a `.dylib`,
-which a host cannot use.
+**Next prerequisite this unlocks:** emit SpockD3D9 as an experimental PE
+`d3d9.dll` (MinGW cross-compile) behind an opt-in Meson target so an external
+host can load it — the default build emits a `.dylib`, which a host cannot use.
 
 ---
 

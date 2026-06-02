@@ -1,11 +1,13 @@
 # Fallout 3 on macOS via SpockD3D9
 
 This directory holds the host-side assets for SpockD3D9's first retail target,
-Fallout 3 (Steam, Windows). The execution model — **a Wine-family host with
-SpockD3D9 as a `d3d9.dll` override** — is decided in
-[docs/FALLOUT3_EXECUTION_MODEL.md](../../docs/FALLOUT3_EXECUTION_MODEL.md). The
-per-subsystem checklist lives in
-[docs/FALLOUT3_COMPAT.md](../../docs/FALLOUT3_COMPAT.md).
+Fallout 3 (Steam, Windows). The execution model — **native-first translator plus
+an optional, opt-in PE `d3d9.dll` that an external Windows host loads as a `d3d9`
+override** — is decided in
+[docs/FALLOUT3_EXECUTION_MODEL.md](../../docs/FALLOUT3_EXECUTION_MODEL.md). No
+single host is officially targeted; the Wine-family hosts used below are
+**examples** of downstream consumers, not blessed platforms. The per-subsystem
+checklist lives in [docs/FALLOUT3_COMPAT.md](../../docs/FALLOUT3_COMPAT.md).
 
 ## What's here
 
@@ -21,26 +23,31 @@ Fallout3.exe → Wine / CrossOver / GPTK (host) → SpockD3D9 d3d9.dll
             → winevulkan → MoltenVK → Metal
 ```
 
-The **host** (Wine family) loads the PE and provides DirectInput, DirectSound,
-filesystem, registry, threading, and the window. **SpockD3D9** provides only the
-D3D9 → Vulkan translation. See the decision record for why.
+The **host** (any external Windows host) loads the PE and provides DirectInput,
+DirectSound, filesystem, registry, threading, and the window. **SpockD3D9**
+provides only the D3D9 → Vulkan translation. The example below uses a Wine-family
+host because that is the readily available option on macOS today — but the
+project does not commit to it; see the decision record for why.
 
 ## Prerequisites
 
 * macOS 13+ on Apple Silicon or Intel, with MoltenVK installed
   (`brew install molten-vk`).
-* A Wine-family host with a working Vulkan + MoltenVK path. Any of:
+* An external Windows host with a working Vulkan + MoltenVK path. Examples
+  (downstream consumers, not officially targeted platforms):
   * Apple [Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/)
   * [CrossOver](https://www.codeweavers.com/crossover)
   * vanilla [Wine](https://www.winehq.org/) built with `winevulkan`
 * A SpockD3D9 **PE `d3d9.dll`** for the host to load.
 
-> **Note — PE build is the current prerequisite task.** SpockD3D9's default
-> build produces the native `libdxvk_d3d9.dylib`, which a Wine host *cannot*
-> load. A Windows-PE `d3d9.dll` (MinGW cross-compile) is required and is the
-> next active item in [Milestone F](../../ROADMAP.md#milestone-f--fallout-3-compatibility).
-> Until it lands, treat the steps below as the intended workflow rather than a
-> turnkey one.
+> **Note — the PE build is experimental and the current prerequisite task.**
+> SpockD3D9's default build produces the native `libdxvk_d3d9.dylib`, which an
+> external host *cannot* load. A Windows-PE `d3d9.dll` (MinGW cross-compile),
+> wired up behind an **optional, non-default** Meson target, is required and is
+> the next active item in
+> [Milestone F](../../ROADMAP.md#milestone-f--fallout-3-compatibility). It is not
+> part of the default or "blessed" build. Until it lands, treat the steps below
+> as the intended workflow rather than a turnkey one.
 
 ## Setup (intended workflow)
 
