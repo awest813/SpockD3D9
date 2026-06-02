@@ -21,16 +21,21 @@ Fallout 3 is a Windows `.exe`. To run it on macOS with SpockD3D9, a **wrapper or
 3. Translate Win32 windowing (HWND) to SDL2/SDL3/GLFW windows
 4. Provide stubs or implementations for non-D3D9 APIs (DirectInput, DirectSound, filesystem)
 
-**Options under consideration:**
+**Decision (2026-06): native-first translator + optional, opt-in PE `d3d9.dll`;
+hosting delegated to external hosts, none committed to.** SpockD3D9 keeps the
+native `libdxvk_d3d9.dylib` as its canonical, supported artifact and owns only
+the D3D9 → Vulkan translation. To enable Windows game hosting without perturbing
+that, it additionally emits a Windows-PE `d3d9.dll` behind an **optional,
+non-default** Meson target. An external Windows host (e.g. Wine, CrossOver, or
+Apple's Game Porting Toolkit — treated as downstream consumers, not officially
+targeted platforms) loads that DLL as a `d3d9` override and provides the
+non-D3D9 Win32 surface. Full rationale, the options table, and consequences are
+in [FALLOUT3_EXECUTION_MODEL.md](FALLOUT3_EXECUTION_MODEL.md). Host setup and the
+title profile live in [`tools/fallout3/`](../tools/fallout3/).
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| Wine + SpockD3D9 as d3d9.dll override | Mature Win32 compat; proven approach | Upstream DXVK already works with Wine; duplicates effort |
-| Custom lightweight wrapper | Minimal overhead; tailored to Gamebryo needs | Large surface area of Win32 APIs to implement |
-| CrossOver / commercial Wine | Best macOS integration | License cost; may conflict with SpockD3D9 goals |
-| Native source port (if available) | Best performance; cleanest integration | Fallout 3 source is not publicly available |
-
-**Decision needed:** Choose the execution model before proceeding with integration work.
+**Next prerequisite this unlocks:** emit SpockD3D9 as an experimental PE
+`d3d9.dll` (MinGW cross-compile) behind an opt-in Meson target so an external
+host can load it — the default build emits a `.dylib`, which a host cannot use.
 
 ---
 
@@ -131,29 +136,15 @@ These are outside SpockD3D9's scope but must be provided by the wrapper layer fo
 
 ---
 
-## Suggested `dxvk.conf` profile
+## `dxvk.conf` profile
 
-Starting configuration for Fallout 3 testing. Adjust based on test results.
-
-```ini
-# Fallout 3 (Steam) — SpockD3D9 profile
-# Place next to FalloutLauncher.exe or set DXVK_CONFIG_FILE
-
-# Shader cache — strongly recommended to reduce stutter
-dxvk.enableShaderCache = True
-
-# Tiler mode — leave at Auto for Apple Silicon
-# dxvk.tilerMode = Auto
-
-# Float emulation — try Strict if there are lighting artifacts
-# d3d9.floatEmulation = Strict
-
-# Force 60 Hz refresh rate (Gamebryo may pick wrong mode)
-# d3d9.forceRefreshRate = 60
-
-# Hide non-standard GPU vendor (avoid NVAPI/AMD-specific code paths)
-# d3d9.hideNvidiaGpu = Auto
-```
+The starting Fallout 3 configuration is shipped as a real, CI-validated file at
+[`tools/fallout3/fallout3.dxvk.conf`](../tools/fallout3/fallout3.dxvk.conf)
+(every key is checked against the documented option set by
+`tests/conf/test_dxvk_conf_profiles.py`). Copy it next to `Fallout3.exe` as
+`dxvk.conf` or point `DXVK_CONFIG_FILE` at it; see
+[`tools/fallout3/README.md`](../tools/fallout3/README.md) for the full host
+setup. Adjust the commented tuning keys based on test results.
 
 ---
 
