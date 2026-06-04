@@ -20,11 +20,13 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 
 ---
 
-## Primary compatibility target
+## Benchmark compatibility targets
 
 | Title | Status | Engine / API | Path | Notes | Detailed tracker |
 |-------|--------|--------------|------|-------|-----------------|
 | **Fallout 3 (Steam, Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Primary target; execution model decided ([native-first translator + optional opt-in PE `d3d9.dll`, host-agnostic](docs/FALLOUT3_EXECUTION_MODEL.md)), profile shipped — awaiting the experimental PE `d3d9.dll` build | [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) |
+| **Fallout: New Vegas (Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Benchmark target; profile shipped — shares Fallout 3's PE `d3d9.dll` blocker and Gamebryo validation path | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
+| **Dragon Age: Origins (Windows)** | **Blocked** | BioWare Eclipse / D3D9 | Windows game compat | Benchmark target; profile shipped — expands coverage beyond Gamebryo to an SM3-heavy RPG renderer | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 
 ### Fallout 3 — key compatibility areas
 
@@ -70,7 +72,9 @@ Configuration presets for titles that are known to need D3D9 quirks on Vulkan.
 
 | Title / pattern | Status (native macOS) | Typical issue | Suggested `dxvk.conf` |
 |-----------------|----------------------|---------------|----------------------|
-| **Fallout 3 (Gamebryo)** | **Blocked** | Requires wrapper layer; potential refresh-rate + float issues | `dxvk.enableShaderCache = True`, `d3d9.forceRefreshRate = 60`, `d3d9.floatEmulation = Strict` |
+| **Fallout 3 (Gamebryo)** | **Blocked** | Requires wrapper layer; potential refresh-rate + float issues | `tools/fallout3/fallout3.dxvk.conf` |
+| **Fallout: New Vegas (Gamebryo)** | **Blocked** | Requires wrapper layer; high-refresh timing and Gamebryo reset paths | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
+| **Dragon Age: Origins (Eclipse)** | **Blocked** | Requires wrapper layer; SM3 effects and launcher/fullscreen paths | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
 | The Sims 2 | **Untested** | Non-standard formats (X4R4G4B4), A8 RT misuse | `d3d9.supportX4R4G4B4 = True`, `d3d9.disableA8RT = True` |
 | AquaNox / AquaNox 2 | **Untested** | Breaks when too many display modes are enumerated | `d3d9.modeCountCompatibility = True` |
 | Halo: Combat Evolved | **Untested** | Wrong sampler/image type combinations | `d3d9.forceSamplerTypeSpecConstants = True` |

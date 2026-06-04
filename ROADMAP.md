@@ -138,6 +138,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Fullscreen / resolution enumeration | Not started | `EnumAdapterModes` → `Reset` cycle |
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
+| Benchmark profiles for Fallout: New Vegas and Dragon Age: Origins | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf); CI-validated against documented options |
 | Boot-to-menu validation | Not started | First end-to-end milestone |
 | In-game rendering validation | Not started | Outdoor + interior + NPC + effects |
 | Save / load stability | Not started | Requires wrapper filesystem support |

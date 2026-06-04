@@ -4,9 +4,10 @@
 A title profile (e.g. tools/fallout3/fallout3.dxvk.conf) must only set keys that
 SpockD3D9 actually understands. The canonical list of understood keys is the set
 documented in the repository-root ``dxvk.conf`` (every option appears there as a
-commented ``# section.key = value`` line). This test parses both files with no
-dependencies beyond the Python standard library and fails if a profile sets a
-key that the reference file does not document, or is otherwise malformed.
+commented ``# section.key = value`` line). This test discovers every
+``tools/**/*.dxvk.conf`` profile with no dependencies beyond the Python standard
+library and fails if a profile sets a key that the reference file does not
+document, is otherwise malformed, or if a required benchmark profile is missing.
 
 Run directly:  python3 tests/conf/test_dxvk_conf_profiles.py
 """
@@ -19,10 +20,13 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 REFERENCE_CONF = os.path.join(REPO_ROOT, "dxvk.conf")
 
-# Profiles that must validate against the reference option set.
-PROFILES = [
-    os.path.join(REPO_ROOT, "tools", "fallout3", "fallout3.dxvk.conf"),
-]
+# Benchmark profiles that must ship while Fallout 3, Fallout: New Vegas, and
+# Dragon Age: Origins are the Windows D3D9/macOS compatibility targets.
+REQUIRED_PROFILES = {
+    os.path.join("tools", "fallout3", "fallout3.dxvk.conf"),
+    os.path.join("tools", "fallout-new-vegas", "fallout-new-vegas.dxvk.conf"),
+    os.path.join("tools", "dragon-age-origins", "dragon-age-origins.dxvk.conf"),
+}
 
 # A "section.key" token, e.g. d3d9.shaderModel or dxvk.tilerMode.
 KEY_RE = re.compile(r"^([A-Za-z0-9_]+\.[A-Za-z0-9_]+)\s*=")
@@ -64,6 +68,19 @@ def active_assignments(path):
     return assignments
 
 
+def discover_profiles():
+    """Return all shipped title profiles under tools/, as absolute paths."""
+    profiles = []
+    tools_dir = os.path.join(REPO_ROOT, "tools")
+
+    for root, _, files in os.walk(tools_dir):
+        for filename in files:
+            if filename.endswith(".dxvk.conf"):
+                profiles.append(os.path.join(root, filename))
+
+    return sorted(profiles)
+
+
 def main():
     failures = []
 
@@ -78,7 +95,20 @@ def main():
 
     print(f"Reference dxvk.conf documents {len(known)} option keys.")
 
-    for profile in PROFILES:
+    profiles = discover_profiles()
+    if not profiles:
+        print("FAIL: no shipped dxvk.conf profiles discovered under tools/")
+        return 1
+
+    discovered_rel = {
+        os.path.relpath(profile, REPO_ROOT)
+        for profile in profiles
+    }
+
+    for required in sorted(REQUIRED_PROFILES - discovered_rel):
+        failures.append(f"required benchmark profile not found: {required}")
+
+    for profile in profiles:
         if not os.path.isfile(profile):
             failures.append(f"profile not found: {profile}")
             continue
@@ -96,7 +126,7 @@ def main():
                     f"(not documented in dxvk.conf)"
                 )
 
-        print(f"OK: {rel} — {len(assignments)} active option(s), all recognized.")
+        print(f"OK: {rel} - {len(assignments)} active option(s), all recognized.")
 
     if failures:
         print("\nFAILURES:")
