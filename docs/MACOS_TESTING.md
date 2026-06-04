@@ -79,7 +79,18 @@ Once the PE DLL builds, follow
 Track progress against [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md) milestones
 (V1–V10).
 
-## 4. Environment reference
+## 4. Capture benchmark results consistently
+
+After each Fallout 3 (or other Windows D3D9 title) host run, record results in
+the format from [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#reporting-a-benchmark-result):
+
+1. Host/runtime used (Wine/CrossOver/GPTK variant)
+2. macOS + GPU/chip + MoltenVK version
+3. SpockD3D9 commit and profile path used
+4. Highest V milestone reached and first failing subsystem
+5. `DXVK_LOG_LEVEL=info` (and `debug` on failures) logs
+
+## 5. Environment reference
 
 | Variable | Purpose |
 |----------|---------|
@@ -91,7 +102,7 @@ Track progress against [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md) milestones
 | `WINEDLLOVERRIDES` | `d3d9=n,b` to load SpockD3D9 PE DLL in Wine hosts |
 | `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `0` if hitting MoltenVK argument-buffer issues |
 
-## 5. CI parity
+## 6. CI parity
 
 GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
 (arm64) and `macos-13` (x86_64), plus an optional PE cross-compile job when
@@ -99,7 +110,7 @@ GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
 built in CI — use the per-arch matrix artifacts or build slices locally. See
 `.github/workflows/build-macos.yml`.
 
-## Troubleshooting
+## 7. Troubleshooting
 
 | Symptom | Likely cause |
 |---------|----------------|
