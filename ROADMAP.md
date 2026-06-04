@@ -122,7 +122,7 @@ Close gaps in `src/util/util_win32_compat.h` and related native shims needed for
 | `DuplicateHandle` | **Done** | Medium | Reference-counted handle sharing; honors `DUPLICATE_CLOSE_SOURCE` (D3D11 frame-latency waitable object) |
 | `CloseHandle` | **Done** | High | Drops a reference and frees the object at zero; dispatches on `NativeHandleKind` |
 | `ProcessIdToSessionId` | **Done** | Low | Returns TRUE, session 0 (no Win32 sessions on macOS) |
-| `CreateCompatibleDC` / `DeleteDC` | Stub (silent) | Low | GDI DC; Windows-only; returns nullptr/FALSE safely |
+| `CreateCompatibleDC` / `DeleteDC` | **Done** | Low | Minimal native memory-DC handle; `DeleteDC` lifecycle covered by `tests/util/test_win32_compat.cpp` |
 
 ### Milestone F — Fallout 3 compatibility
 
@@ -180,7 +180,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 - **HDR / colorimetry**: depends on EDID path (`d3d9_swapchain.cpp` consumer of `getMonitorEdid`)
 - **SDL3 as recommended backend**: SDL3 WSI has the most complete fullscreen implementation; align README/CI defaults when stable
 - **macOS `dxvk.conf` profile**: annotate MoltenVK-relevant keys; de-emphasize DXGI/D3D11 options
-- **Present stats / VBlank**: stubs in `d3d9_swapchain.cpp` (`GetPresentStats`, `WaitForVBlank`)
+- ~~**Present stats / VBlank**~~: Done — `GetPresentStats` and `WaitForVBlank` return refresh-count based timing in `d3d9_swapchain.cpp`
 
 ---
 
