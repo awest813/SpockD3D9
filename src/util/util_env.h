@@ -93,8 +93,8 @@ namespace dxvk::env {
    * When \c DYLD_LIBRARY_PATH is narrowed (e.g. to a SpockD3D9 install lib
    * dir), dependent libraries such as SDL2 and libvulkan may not resolve
    * unless Homebrew's lib directory is on the fallback search path. Also
-   * points the Vulkan loader at Homebrew's MoltenVK ICD manifest when the
-   * user has not already selected one.
+   * points the Vulkan loader at Homebrew's MoltenVK driver manifest when
+   * the user has not already selected one.
    *
    * Safe to call multiple times. Must run before WSI or Vulkan libraries
    * are loaded dynamically.

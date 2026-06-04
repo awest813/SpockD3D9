@@ -191,13 +191,16 @@ namespace dxvk::env {
         setenv("DYLD_FALLBACK_LIBRARY_PATH", fallback.c_str(), 0);
     }
 
-    if (!std::getenv("VK_ICD_FILENAMES") && !std::getenv("VK_DRIVER_FILES")) {
+    if (!std::getenv("VK_DRIVER_FILES")
+     && !std::getenv("VK_ICD_FILENAMES")
+     && !std::getenv("VK_ADD_DRIVER_FILES")) {
       for (const auto& prefix : getHomebrewPrefixes()) {
         std::string manifest = str::format(prefix, "/share/vulkan/icd.d/MoltenVK_icd.json");
 
         if (fileExists(manifest)) {
+          setenv("VK_DRIVER_FILES", manifest.c_str(), 0);
           setenv("VK_ICD_FILENAMES", manifest.c_str(), 0);
-          Logger::info(str::format("Vulkan: Using MoltenVK ICD manifest ", manifest));
+          Logger::info(str::format("Vulkan: Using MoltenVK driver manifest ", manifest));
           return;
         }
       }
