@@ -139,9 +139,9 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu validation still blocked on host + game testing — see [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) |
 | Audit + polish Milestone F docs | **Done** | Audited status now aligned across [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md), [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md), and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` smoke test (formats, SM3 caps, CreateDevice, Present, Reset); retail boot-to-menu still pending |
-| Shader compilation (SM2/SM3 + fixed-function) | Not started | Gamebryo uses mixed paths; test DXSO → SPIR-V → MSL chain |
-| Texture format support (DXT1–5, depth) | Not started | Verify BCn + D24S8 on MoltenVK |
-| Fullscreen / resolution enumeration | Not started | `EnumAdapterModes` → `Reset` cycle |
+| Shader compilation (SM2/SM3 + fixed-function) | **Partial (CI)** | `d3d9-gamebryo-probe` exercises FF `DrawPrimitiveUP` → SPIR-V → MSL; DXSO SM2/SM3 on retail shaders still pending |
+| Texture format support (DXT1–5, depth) | **CI probe** | `d3d9-gamebryo-probe` checks DXT1/3/5 + D24S8/D16 via `CheckDeviceFormat` |
+| Fullscreen / resolution enumeration | **Partial (CI)** | Probe: `EnumAdapterModes`, `GetAdapterDisplayMode`, `Reset`; exclusive fullscreen on host still pending |
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
 | Benchmark profiles for Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf), [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf); CI-validated against documented options |
@@ -207,6 +207,13 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 - DXGI / D3D10 / D3D11 (source retained; disabled via meson options)
 - Direct Metal translation (see [dxmt](https://github.com/3Shain/dxmt))
 - Non-D3D9 game APIs (DirectSound, DirectInput, XInput — needed for full game compatibility but outside SpockD3D9's responsibility; a wrapper layer must provide these)
+
+---
+
+## Track A (MoltenVK) — active path
+
+All default builds and milestones above use **Track A**: D3D9 → Vulkan → MoltenVK → Metal.
+Operational guide: [docs/TRACK_A.md](docs/TRACK_A.md).
 
 ---
 

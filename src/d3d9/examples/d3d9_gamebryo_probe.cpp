@@ -1,10 +1,10 @@
 /**
  * Gamebryo / Fallout 3-style D3D9 device creation probe (Milestone F).
  *
- * Exercises the native SpockD3D9 path with presentation parameters, format
- * queries, and caps checks typical of Gamebryo titles, then clears and
- * presents a few frames. Intended for CI on macOS (MoltenVK) alongside
- * d3d9-clear; does not require the Windows game binary.
+ * Exercises the native SpockD3D9 path (Track A / MoltenVK) with presentation
+ * parameters, format queries, MSAA checks, display mode enumeration, SM3 caps,
+ * a fixed-function DrawPrimitiveUP (GLSL → SPIR-V → MSL), Present, and Reset.
+ * Intended for CI on macOS alongside d3d9-clear; does not require the game binary.
  *
  * Exit 0 when the probe prints "d3d9-gamebryo-probe: OK".
  */
@@ -128,6 +128,55 @@ namespace {
     return true;
   }
 
+  void logMultiSampleType(IDirect3D9* d3d9, UINT adapter, D3DMULTISAMPLE_TYPE samples, const char* name) {
+    DWORD quality = 0;
+    const HRESULT hr = d3d9->CheckDeviceMultiSampleType(
+      adapter,
+      D3DDEVTYPE_HAL,
+      D3DFMT_X8R8G8B8,
+      TRUE,
+      samples,
+      &quality);
+
+    if (SUCCEEDED(hr))
+      std::printf("d3d9-gamebryo-probe: CheckDeviceMultiSampleType %s OK (quality=%lu)\n", name, quality);
+    else
+      std::printf("d3d9-gamebryo-probe: CheckDeviceMultiSampleType %s unavailable (0x%08lx)\n", name, hr);
+  }
+
+  bool drawFixedFunctionTriangle(IDirect3DDevice9* device) {
+    struct Vertex {
+      float x, y, z, rhw;
+      DWORD color;
+    };
+
+    const Vertex vertices[] = {
+      { 640.0f, 200.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(200, 64, 64) },
+      { 400.0f, 520.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(64, 200, 64) },
+      { 880.0f, 520.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(64, 64, 200) },
+    };
+
+    device->SetRenderState(D3DRS_LIGHTING, FALSE);
+    device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    device->SetRenderState(D3DRS_ZENABLE, TRUE);
+    device->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+    device->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
+
+    const HRESULT drawHr = device->DrawPrimitiveUP(
+      D3DPT_TRIANGLELIST,
+      1,
+      vertices,
+      sizeof(Vertex));
+
+    if (FAILED(drawHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: DrawPrimitiveUP (FF) failed (0x%08lx)\n", drawHr);
+      return false;
+    }
+
+    std::printf("d3d9-gamebryo-probe: DrawPrimitiveUP fixed-function OK\n");
+    return true;
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -209,6 +258,20 @@ int main(int argc, char** argv) {
   }
   std::printf("d3d9-gamebryo-probe: EnumAdapterModes OK (%u modes)\n", modeCount);
 
+  D3DDISPLAYMODE displayMode = { };
+  if (FAILED(d3d9->GetAdapterDisplayMode(adapter, &displayMode))) {
+    std::fprintf(stderr, "d3d9-gamebryo-probe: GetAdapterDisplayMode failed\n");
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+  std::printf("d3d9-gamebryo-probe: GetAdapterDisplayMode OK (%ux%u @ %u Hz)\n",
+    displayMode.Width, displayMode.Height, displayMode.RefreshRate);
+
+  logMultiSampleType(d3d9, adapter, D3DMULTISAMPLE_2_SAMPLES, "2x MSAA");
+  logMultiSampleType(d3d9, adapter, D3DMULTISAMPLE_4_SAMPLES, "4x MSAA");
+
   if (!checkFormat(d3d9, adapter, D3DFMT_DXT1, "DXT1")
    || !checkFormat(d3d9, adapter, D3DFMT_DXT3, "DXT3")
    || !checkFormat(d3d9, adapter, D3DFMT_DXT5, "DXT5")
@@ -288,6 +351,14 @@ int main(int argc, char** argv) {
   }
   std::printf("d3d9-gamebryo-probe: TestCooperativeLevel OK\n");
 
+  if (!drawFixedFunctionTriangle(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+
   std::printf("d3d9-gamebryo-probe: presenting %d frame(s)\n", frameCount);
 
   for (int frame = 0; frame < frameCount; ++frame) {
@@ -303,6 +374,14 @@ int main(int argc, char** argv) {
 
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
       D3DCOLOR_XRGB(48, 96, 48), 1.0f, 0);
+
+    if (!drawFixedFunctionTriangle(device)) {
+      device->Release();
+      d3d9->Release();
+      SDL_DestroyWindow(window);
+      SDL_Quit();
+      return 1;
+    }
 
     const HRESULT presentHr = device->Present(nullptr, nullptr, nullptr, nullptr);
     if (FAILED(presentHr)) {

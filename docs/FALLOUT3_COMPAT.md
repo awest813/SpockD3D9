@@ -47,9 +47,12 @@ still pending.
 - **Build/packaging scaffolding:** Done for the optional PE path (`enable_pe_d3d9`
   Meson option, cross file, helper script, CI coverage) and for native profile
   validation (`tests/conf/test_dxvk_conf_profiles.py`).
-- **Native CI probe:** `d3d9-gamebryo-probe` (built with the native dylib) exercises
-  Gamebryo-typical `CreateDevice` parameters, BCn/D24S8 format queries, SM3 caps,
-  Present, and `Reset` on macOS CI. This covers V1–V2 on the native path only.
+- **Native CI probe:** `d3d9-gamebryo-probe` (Track A / MoltenVK) exercises
+  Gamebryo-typical `CreateDevice` parameters, BCn/D24S8 format queries, display
+  mode enumeration, MSAA checks, SM3 caps, fixed-function `DrawPrimitiveUP`
+  (SPIR-V → MSL), Present, and `Reset` on macOS CI. See [TRACK_A.md](TRACK_A.md).
+  This covers V1–V2 on the native path only; DXSO SM2/SM3 on retail shaders
+  remains manual.
 - **Runtime game milestones:** Retail boot-to-menu (V3+) still unverified on real
   host/game runs. Treat the V1–V10 table below as the active tracker for manual progression.
 - **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
