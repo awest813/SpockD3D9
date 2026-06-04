@@ -36,7 +36,11 @@ export DXVK_WSI_DRIVER=SDL3
 **Pass criteria:** exit code 0, log ends with `d3d9-clear: OK`.
 
 The Gamebryo / Fallout 3-style device probe (`d3d9-gamebryo-probe`) runs the same
-way when built (SDL3 preferred). Pass criteria: log ends with `d3d9-gamebryo-probe: OK`.
+way when built (SDL3 preferred). It exercises the **Track A (MoltenVK)** path beyond
+`d3d9-clear`: BCn and depth format queries, display mode enumeration, MSAA checks
+(logged, non-fatal if unavailable), SM3 caps, a fixed-function `DrawPrimitiveUP`
+(SPIR-V → MSL), `Present`, and `Reset`. Pass criteria: log ends with
+`d3d9-gamebryo-probe: OK`. See [TRACK_A.md](TRACK_A.md) for the full checklist.
 
 **Optional:** run with validation layers:
 
@@ -96,7 +100,33 @@ the format from [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#reportin
 4. Highest V milestone reached and first failing subsystem
 5. `DXVK_LOG_LEVEL=info` (and `debug` on failures) logs
 
-## 5. Environment reference
+## 5. Track A / MoltenVK tuning
+
+SpockD3D9's default macOS path is **D3D9 → Vulkan → MoltenVK → Metal**. Operational
+guide: [TRACK_A.md](TRACK_A.md).
+
+**Recommended `dxvk.conf` keys for every macOS run:**
+
+```ini
+dxvk.enableShaderCache = True
+dxvk.tilerMode = Auto
+```
+
+Title profiles under `tools/*/` already set these. The shader cache reduces repeat
+**SPIR-V → MSL** compilation stutter inside MoltenVK; the first launch of a heavy
+title may still hitch while pipelines compile.
+
+**Shader cache diagnostics:**
+
+```bash
+export DXVK_LOG_LEVEL=info    # summarize pipeline / shader work
+export DXVK_LOG_LEVEL=debug   # per-shader detail when a compile fails
+```
+
+Re-run the same scene twice and compare: the second run should show fewer new
+pipeline creations in the log.
+
+## 6. Environment reference
 
 | Variable | Purpose |
 |----------|---------|
@@ -107,8 +137,10 @@ the format from [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#reportin
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Override MoltenVK ICD (usually auto-detected) |
 | `WINEDLLOVERRIDES` | `d3d9=n,b` to load SpockD3D9 PE DLL in Wine hosts |
 | `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `0` if hitting MoltenVK argument-buffer issues |
+| `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
+| `MTL_DEBUG_LAYER` | Metal API validation (heavy; isolate Metal-side failures) |
 
-## 6. CI parity
+## 7. CI parity
 
 GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
 (arm64) and `macos-13` (x86_64), plus an optional PE cross-compile job when
@@ -116,7 +148,7 @@ GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
 built in CI — use the per-arch matrix artifacts or build slices locally. See
 `.github/workflows/build-macos.yml`.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Likely cause |
 |---------|----------------|
