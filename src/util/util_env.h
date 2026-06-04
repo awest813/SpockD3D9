@@ -82,10 +82,35 @@ namespace dxvk::env {
   /**
    * \brief Homebrew install prefixes to probe on macOS
    *
-   * Returns \c HOMEBREW_PREFIX when set, followed by the default Apple
-   * Silicon and Intel Homebrew locations.
+   * Returns \c HOMEBREW_PREFIX when set, followed by the default prefix(es)
+   * for the active architecture slice: \c /usr/local first on Intel Mac
+   * (x86_64), \c /opt/homebrew first on Apple Silicon (arm64).
    */
   std::vector<std::string> getHomebrewPrefixes();
+
+  /**
+   * \brief Default Homebrew prefixes for the current architecture slice
+   *
+   * Exposed for tests; \ref getHomebrewPrefixes prepends \c HOMEBREW_PREFIX.
+   */
+  inline void appendDefaultHomebrewPrefixes(std::vector<std::string>& prefixes) {
+#if defined(DXVK_TEST_HOMEBREW_INTEL_SLICE)
+    prefixes.emplace_back("/usr/local");
+    prefixes.emplace_back("/opt/homebrew");
+#elif defined(DXVK_TEST_HOMEBREW_ARM_SLICE)
+    prefixes.emplace_back("/opt/homebrew");
+    prefixes.emplace_back("/usr/local");
+#elif defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
+    prefixes.emplace_back("/opt/homebrew");
+    prefixes.emplace_back("/usr/local");
+#elif defined(__x86_64__) || defined(_M_X64)
+    prefixes.emplace_back("/usr/local");
+    prefixes.emplace_back("/opt/homebrew");
+#else
+    prefixes.emplace_back("/opt/homebrew");
+    prefixes.emplace_back("/usr/local");
+#endif
+  }
 
   /**
    * \brief Prepare dyld and Vulkan loader environment on macOS

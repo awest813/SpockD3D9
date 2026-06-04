@@ -29,6 +29,30 @@ jobs:
           tests/util/test_win32_compat.cpp -o test_win32_compat_tsan
         ./test_win32_compat_tsan
 
+  homebrew-prefixes:
+    runs-on: ubuntu-latest
+    name: macOS Homebrew prefix order
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Intel Mac Homebrew uses /usr/local; Apple Silicon uses /opt/homebrew.
+    - name: Verify Intel (x86_64) prefix order
+      run: |
+        g++ -std=c++17 -O2 -Wall -Wextra \
+          -D__APPLE__ -DDXVK_TEST_HOMEBREW_INTEL_SLICE \
+          -Isrc/util -Iinclude/native/windows -Iinclude/native \
+          tests/util/test_homebrew_prefixes.cpp -o test_homebrew_intel
+        ./test_homebrew_intel
+
+    - name: Verify Apple Silicon (arm64) prefix order
+      run: |
+        g++ -std=c++17 -O2 -Wall -Wextra \
+          -D__APPLE__ -DDXVK_TEST_HOMEBREW_ARM_SLICE \
+          -Isrc/util -Iinclude/native/windows -Iinclude/native \
+          tests/util/test_homebrew_prefixes.cpp -o test_homebrew_arm
+        ./test_homebrew_arm
+
   conf-profiles:
     runs-on: ubuntu-latest
     name: dxvk.conf profiles

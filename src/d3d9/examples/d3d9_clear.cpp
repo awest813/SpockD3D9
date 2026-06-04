@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 #if defined(D3D9_CLEAR_SDL3)
 #include <SDL3/SDL.h>
@@ -26,6 +27,9 @@
 #endif
 #include <windows.h>
 #include <d3d9.h>
+
+#include "../../util/util_env.h"
+#include "../../util/util_string.h"
 
 namespace {
 
@@ -63,20 +67,23 @@ namespace {
     if (vulkanLibraryLoaded(nullptr))
       return true;
 
-    const char* const candidates[] = {
-      std::getenv("SDL_VULKAN_LIBRARY"),
-      "/opt/homebrew/lib/libMoltenVK.dylib",
-      "/usr/local/lib/libMoltenVK.dylib",
-      "/opt/homebrew/lib/libvulkan.1.dylib",
-      "/usr/local/lib/libvulkan.1.dylib",
+    if (const char* envPath = std::getenv("SDL_VULKAN_LIBRARY")) {
+      if (envPath[0] != '\0' && vulkanLibraryLoaded(envPath))
+        return true;
+    }
+
+    static const char* const vulkanLibs[] = {
+      "libMoltenVK.dylib",
+      "libvulkan.1.dylib",
     };
 
-    for (const char* path : candidates) {
-      if (path == nullptr || path[0] == '\0')
-        continue;
+    for (const auto& prefix : dxvk::env::getHomebrewPrefixes()) {
+      for (const char* libName : vulkanLibs) {
+        const std::string path = dxvk::str::format(prefix, "/lib/", libName);
 
-      if (vulkanLibraryLoaded(path))
-        return true;
+        if (vulkanLibraryLoaded(path.c_str()))
+          return true;
+      }
     }
 
     return false;
