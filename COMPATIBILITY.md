@@ -51,6 +51,21 @@ See [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the full per-subsyste
 | Title / sample | Status | WSI | Notes | `dxvk.conf` |
 |----------------|--------|-----|-------|-------------|
 | `d3d9-clear` (built-in smoke test) | **Works** | SDL3 | Clears back buffer and presents; exercised in CI | *(none)* |
+| `d3d9-clear-sdl2` (optional smoke test) | **Works** | SDL2 | Built when both SDL3 and SDL2 are available | *(none)* |
+
+---
+
+## Shipped `dxvk.conf` profiles
+
+CI validates every profile under `tools/**/*.dxvk.conf` against the options documented in the root [`dxvk.conf`](dxvk.conf). Copy a profile next to your app and rename it to `dxvk.conf`, or set `DXVK_CONFIG_FILE`.
+
+| Profile | Path | Use case |
+|---------|------|----------|
+| **macOS platform (native ports)** | [`tools/macos/macos.dxvk.conf`](tools/macos/macos.dxvk.conf) | Starting point for SDL3/GLFW native D3D9 ports on Apple Silicon / Intel |
+| **Fallout 3 (Gamebryo)** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf) | Windows host + PE `d3d9.dll` override (when available) |
+| **Fallout: New Vegas** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf) | Gamebryo benchmark title |
+| **Dragon Age: Origins** | [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf) | SM3-heavy BioWare RPG |
+| **Galactic Civilizations II** | [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf) | Strategy UI / mode-picker coverage |
 
 ---
 
@@ -63,7 +78,7 @@ These projects ship native builds using [DXVK Native](https://github.com/doitsuj
 | [Perimeter](https://github.com/KranX/Perimeter) | **Untested** | Custom / D3D9 | SDL2 | Open-source RTS; DXVK Native on Linux | `dxvk.enableShaderCache = True` |
 | [Momentum Mod](https://momentum-mod.org/) | **Untested** | Source / D3D9 | SDL2 | Source-engine mod; native Linux via DXVK Native | `dxvk.enableShaderCache = True` |
 | Portal 2 / Left 4 Dead 2 (Valve) | **Untested** | Source / D3D9 | SDL2 | Valve shipped DXVK Native Linux builds; macOS would need a separate port | `dxvk.enableShaderCache = True` |
-| Custom SDL2 D3D9 port (your project) | **Untested** | D3D9 | SDL2 / SDL3 / GLFW | Link `libdxvk_d3d9.dylib`, pass `SDL_Window*` as `HWND` | See [README](README.md#usage-in-your-application) |
+| Custom SDL3 D3D9 port (your project) | **Untested** | D3D9 | SDL3 / SDL2 / GLFW | Link `libdxvk_d3d9.dylib`, pass `SDL_Window*` as `HWND` | [`tools/macos/macos.dxvk.conf`](tools/macos/macos.dxvk.conf) |
 
 ---
 
@@ -121,7 +136,19 @@ your_app
 
 ## Common configuration snippets
 
-### Apple Silicon — default tiler optimizations (recommended)
+### Native macOS ports — platform profile
+
+For new SDL3/GLFW ports, start from the shipped platform profile:
+
+```bash
+cp tools/macos/macos.dxvk.conf /path/to/your/app/dxvk.conf
+# or: export DXVK_CONFIG_FILE=/path/to/macos.dxvk.conf
+export DXVK_WSI_DRIVER=SDL3
+```
+
+See [`tools/macos/macos.dxvk.conf`](tools/macos/macos.dxvk.conf) for MoltenVK-oriented defaults (tiler mode, shader cache, present latency).
+
+### Apple Silicon — manual tuning
 
 SpockD3D9 enables tiler-aware submission when MoltenVK is detected (`VK_DRIVER_ID_MOLTENVK`). Usually leave at default:
 
