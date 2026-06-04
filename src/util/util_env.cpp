@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <numeric>
@@ -17,6 +18,7 @@
 #include "util_env.h"
 
 #include "./com/com_include.h"
+#include "log/log.h"
 
 namespace dxvk::env {
 
@@ -148,6 +150,60 @@ namespace dxvk::env {
 #endif
 #endif
   }
+
+
+#if defined(__APPLE__)
+  std::vector<std::string> getHomebrewPrefixes() {
+    std::vector<std::string> prefixes;
+
+    if (const char* brewPrefix = std::getenv("HOMEBREW_PREFIX"))
+      prefixes.emplace_back(brewPrefix);
+
+    prefixes.emplace_back("/opt/homebrew");
+    prefixes.emplace_back("/usr/local");
+
+    return prefixes;
+  }
+
+
+  static bool fileExists(const std::string& path) {
+    if (FILE* file = std::fopen(path.c_str(), "r")) {
+      std::fclose(file);
+      return true;
+    }
+
+    return false;
+  }
+
+
+  void prepareDarwinEnvironment() {
+    if (!std::getenv("DYLD_FALLBACK_LIBRARY_PATH")) {
+      std::string fallback;
+
+      for (const auto& prefix : getHomebrewPrefixes()) {
+        if (!fallback.empty())
+          fallback += ':';
+
+        fallback += str::format(prefix, "/lib");
+      }
+
+      if (!fallback.empty())
+        setenv("DYLD_FALLBACK_LIBRARY_PATH", fallback.c_str(), 0);
+    }
+
+    if (!std::getenv("VK_ICD_FILENAMES") && !std::getenv("VK_DRIVER_FILES")) {
+      for (const auto& prefix : getHomebrewPrefixes()) {
+        std::string manifest = str::format(prefix, "/share/vulkan/icd.d/MoltenVK_icd.json");
+
+        if (fileExists(manifest)) {
+          setenv("VK_ICD_FILENAMES", manifest.c_str(), 0);
+          Logger::info(str::format("Vulkan: Using MoltenVK ICD manifest ", manifest));
+          return;
+        }
+      }
+    }
+  }
+#endif
 
 
   bool createDirectory(const std::string& path) {

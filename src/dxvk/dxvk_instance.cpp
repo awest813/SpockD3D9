@@ -6,6 +6,7 @@
 #include "dxvk_openxr.h"
 #include "dxvk_platform_exts.h"
 
+#include "../util/util_env.h"
 #include "../wsi/wsi_platform.h"
 
 #include "../vulkan/vulkan_util.h"
@@ -26,6 +27,13 @@ namespace dxvk {
     Logger::info(str::format("Game: ", env::getExeName()));
     Logger::info(str::format("DXVK: ", DXVK_VERSION));
     Logger::info(str::format("Build: ", DXVK_TARGET, " ", DXVK_COMPILER, " ", DXVK_COMPILER_VERSION));
+
+#if defined(__APPLE__)
+    // WSI dynamically loads SDL/GLFW before the Vulkan loader is initialized.
+    // Set up Homebrew dyld fallbacks and the MoltenVK ICD manifest first so
+    // those libraries resolve when DYLD_LIBRARY_PATH is narrowed.
+    env::prepareDarwinEnvironment();
+#endif
 
     wsi::init();
 
