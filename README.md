@@ -97,8 +97,9 @@ brew install mingw-w64   # if not already installed
 
 Use with a Windows host via `WINEDLLOVERRIDES="d3d9=n,b"`. See
 [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) for the
-Fallout 3 hosting path and [ROADMAP.md](ROADMAP.md) Milestone F for validation
-status.
+Fallout 3 hosting path, [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) for the
+full macOS validation checklist, and [ROADMAP.md](ROADMAP.md) Milestone F for
+validation status.
 
 ### Smoke test (`d3d9-clear`)
 
@@ -120,6 +121,11 @@ export DXVK_WSI_DRIVER=SDL3
 > locate your freshly built `libdxvk_d3d9.dylib`.
 
 On success it prints `d3d9-clear: OK` and exits with code 0.
+
+For a one-command local validation pass (build + smoke test), use
+[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh). The full macOS
+testing checklist — native build, PE cross-compile, and Fallout 3 hosting — is
+in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).
 
 ### Cross-Architecture Build
 

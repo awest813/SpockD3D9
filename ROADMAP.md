@@ -135,7 +135,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Task | Status | Notes |
 |------|--------|-------|
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
-| Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, and `scripts/build-pe-d3d9.sh`; boot-to-menu validation still blocked on host + game testing |
+| Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu validation still blocked on host + game testing — see [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) |
 | D3D9 device creation (Gamebryo) | Not started | Validate `Direct3DCreate9` → device → swapchain path |
 | Shader compilation (SM2/SM3 + fixed-function) | Not started | Gamebryo uses mixed paths; test DXSO → SPIR-V → MSL chain |
 | Texture format support (DXT1–5, depth) | Not started | Verify BCn + D24S8 on MoltenVK |

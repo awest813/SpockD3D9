@@ -132,9 +132,10 @@ const uint TCIOffset = 16;
 const uint TCIMask = (7 << TCIOffset);
 
 // D3DRS_WRAP0-7 / D3DRS_WRAP8-15: strip the integer portion of enabled
-// texture coordinate components (D3DWRAP_U/V/W = bits 0/1/2).
+// texture coordinate components (D3DWRAP_U/V/W = bits 0/1/2). GLSL fract()
+// matches D3D9 here (v - floor(v), always in [0, 1)).
 float wrapComponent(float v, bool enable) {
-    return enable ? fract(v) : v;
+    return enable ? (v - floor(v)) : v;
 }
 
 vec4 applyWrap(vec4 coord, uint wrapMask) {
