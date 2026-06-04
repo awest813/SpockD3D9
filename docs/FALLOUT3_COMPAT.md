@@ -1,6 +1,6 @@
 # Fallout 3 (Steam, Windows) — Compatibility Checklist
 
-Fallout 3 is SpockD3D9's first retail compatibility target — the beachhead for the project's broader goal of **full compatibility with Windows D3D9 games on macOS**. As a representative Gamebryo/D3D9 title, getting it running end to end exercises nearly every subsystem that later Windows games will also need, so it doubles as the proving ground for the whole compatibility path. This document tracks every subsystem required to get Fallout 3 running on macOS through SpockD3D9; the shared benchmark tracker for Fallout 3, Fallout: New Vegas, and Dragon Age: Origins lives in [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md).
+Fallout 3 is SpockD3D9's first retail compatibility target — the beachhead for the project's broader goal of **full compatibility with Windows D3D9 games on macOS**. As a representative Gamebryo/D3D9 title, getting it running end to end exercises nearly every subsystem that later Windows games will also need, so it doubles as the proving ground for the whole compatibility path. This document tracks every subsystem required to get Fallout 3 running on macOS through SpockD3D9; the shared benchmark tracker for Fallout 3, Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II lives in [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md).
 
 **Game details:**
 - **Title:** Fallout 3 (+ DLCs / GOTY)

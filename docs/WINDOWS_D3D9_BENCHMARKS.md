@@ -1,11 +1,12 @@
 # Windows D3D9 macOS benchmark targets
 
-SpockD3D9's compatibility work is measured against three retail Windows D3D9
+SpockD3D9's compatibility work is measured against four retail Windows D3D9
 games on macOS:
 
 1. **Fallout 3** - Gamebryo, fixed-function + SM2/SM3
 2. **Fallout: New Vegas** - Gamebryo, fixed-function + SM2/SM3
 3. **Dragon Age: Origins** - BioWare Eclipse, SM3 renderer
+4. **Galactic Civilizations II** - Stardock strategy renderer, D3D9 UI/map rendering
 
 These titles exercise the compatibility surface that matters most for hosted
 Windows D3D9 games: device creation, display mode enumeration, fullscreen/reset
@@ -14,7 +15,7 @@ presentation, and old-engine timing assumptions.
 
 ## Current blocker
 
-All three are Windows executables. They require an external Windows host plus an
+All four are Windows executables. They require an external Windows host plus an
 experimental PE `d3d9.dll` build of SpockD3D9. The default macOS build still
 emits the native `libdxvk_d3d9.dylib`, which is the canonical translator artifact
 but cannot be loaded directly by an unmodified Windows game.
@@ -26,6 +27,7 @@ but cannot be loaded directly by an unmodified Windows game.
 | Fallout 3 | `Fallout3.exe` | `tools/fallout3/fallout3.dxvk.conf` |
 | Fallout: New Vegas | `FalloutNV.exe` | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
 | Dragon Age: Origins | `daorigins.exe` | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
+| Galactic Civilizations II | `GC2*.exe` | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
 
 The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
@@ -66,6 +68,12 @@ Track every title through the same milestones so regressions are comparable:
 - SM3 material and spell-effect shaders
 - Character skinning, terrain lighting, and indoor/outdoor area transitions
 - Launcher-selected display modes and fullscreen transitions
+
+### Galactic Civilizations II
+
+- Launcher/settings display-mode enumeration with a small Windows-like mode list
+- Strategy map, ship previews, and UI compositing
+- Long-running turn-based sessions without present/device-loss loops
 
 ## Reporting a benchmark result
 

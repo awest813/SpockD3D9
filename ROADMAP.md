@@ -7,7 +7,7 @@
 The overarching goal is **full compatibility with Windows D3D9 games on macOS**. It breaks down into:
 
 - **Run unmodified Windows D3D9 games on macOS** — close the Win32 compatibility gaps and provide (or integrate with) a host/wrapper layer that routes a game's `d3d9.dll` calls into SpockD3D9
-- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the first retail title, proving the full path end to end
+- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the first retail title, then use **Fallout: New Vegas**, **Dragon Age: Origins**, and **Galactic Civilizations II** as follow-on benchmark titles for broader Windows D3D9 coverage
 - Ship a rock-solid native `libdxvk_d3d9.dylib` for Apple Silicon (arm64) and Intel Mac (x86_64) — the translation foundation everything else builds on
 - Support SDL2, SDL3, and GLFW for window/surface integration (the native replacement for Win32 windowing)
 - Optimize for Apple tiler GPUs via MoltenVK detection and upstream tiler heuristics
@@ -138,7 +138,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Fullscreen / resolution enumeration | Not started | `EnumAdapterModes` → `Reset` cycle |
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
-| Benchmark profiles for Fallout: New Vegas and Dragon Age: Origins | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf); CI-validated against documented options |
+| Benchmark profiles for Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf), [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf); CI-validated against documented options |
 | Boot-to-menu validation | Not started | First end-to-end milestone |
 | In-game rendering validation | Not started | Outdoor + interior + NPC + effects |
 | Save / load stability | Not started | Requires wrapper filesystem support |
