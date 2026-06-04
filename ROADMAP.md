@@ -85,7 +85,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 ### Milestone A — Builds and presents a pixel
 
 - [x] CI installs MoltenVK and verifies Vulkan loader is present
-- [x] Minimal native sample: `d3d9-clear` (SDL2 clear + present)
+- [x] Minimal native sample: `d3d9-clear` (SDL3 primary, SDL2 fallback)
 - [x] GLFW `setWindowMode` height typo fix
 - [x] GLFW / SDL2 fullscreen targets the requested monitor (not always primary)
 - [x] GLFW `getWindowMonitor` uses window position / fullscreen monitor

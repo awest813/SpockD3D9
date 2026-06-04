@@ -96,7 +96,7 @@ Run with debug logging and exercise your app's format checks:
 
 ```bash
 export DXVK_LOG_LEVEL=debug
-export DXVK_WSI_DRIVER=SDL2   # or SDL3, GLFW
+export DXVK_WSI_DRIVER=SDL3   # or SDL2, GLFW
 your_app
 ```
 
@@ -104,7 +104,7 @@ For a minimal end-to-end sanity check, build and run the included smoke test:
 
 ```bash
 export DYLD_LIBRARY_PATH="/path/to/install/lib"
-export DXVK_WSI_DRIVER=SDL2
+export DXVK_WSI_DRIVER=SDL3
 /path/to/install/lib/d3d9-clear 3
 ```
 

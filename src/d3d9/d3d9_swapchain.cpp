@@ -163,6 +163,7 @@ namespace dxvk {
       return D3D_OK;
 
 #ifndef _WIN32
+    wsi::processWindowEvents();
     PollWindowLifecycleForHook(m_window);
 #endif
 
@@ -784,6 +785,8 @@ namespace dxvk {
 
 
   void D3D9SwapChainEx::InvalidateSwapchainExtent() {
+    // Drop the Vulkan surface so the next present recreates it at the updated
+    // window extent. Refresh rate is re-queried once the display mode settles.
     m_displayRefreshRateDirty = true;
 
     if (m_wctx && m_wctx->presenter)
@@ -1518,14 +1521,16 @@ namespace dxvk {
     wsi::WsiEdidData edidData = wsi::getMonitorEdid(monitor);
     wsi::WsiDisplayMetadata metadata = {};
     {
-      std::optional<wsi::WsiDisplayMetadata> r_metadata = std::nullopt;
+      std::optional<wsi::WsiDisplayMetadata> parsed = std::nullopt;
       if (!edidData.empty())
-        r_metadata = wsi::parseColorimetryInfo(edidData);
+        parsed = wsi::parseColorimetryInfo(edidData);
 
-      if (r_metadata)
-        metadata = *r_metadata;
+      if (parsed)
+        metadata = *parsed;
+      else if (edidData.empty())
+        Logger::warn("D3D9: No EDID data for monitor; using normalized defaults.");
       else
-        Logger::warn("D3D9: No EDID colorimetry for monitor; using normalized defaults.");
+        Logger::warn("D3D9: Failed to parse EDID colorimetry; using normalized defaults.");
     }
 
 

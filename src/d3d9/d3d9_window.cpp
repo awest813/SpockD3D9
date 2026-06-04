@@ -99,7 +99,9 @@ namespace dxvk
       D3DDEVICE_CREATION_PARAMETERS create_parms;
       device->GetCreationParameters(&create_parms);
 
-      if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES) && !IsIconic(window)) {
+      if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES)
+       && wparam != SIZE_MINIMIZED
+       && windowData.swapchain) {
         PostMessageW(window, WM_ACTIVATEAPP, 1, GetCurrentThreadId());
         windowData.swapchain->InvalidateSwapchainExtent();
       }
@@ -174,9 +176,9 @@ namespace dxvk
   // ---------------------------------------------------------------------------
   // Non-Win32 (SDL2 / SDL3 / GLFW) window lifecycle tracking
   //
-  // On non-Win32 backends there is no passive WndProc hook, so we maintain a
-  // simple {HWND → {swapchain, lastFocused, lastExtent}} map and poll WSI each
-  // frame from Present via PollWindowLifecycleForHook.
+  // Maintains {HWND → {swapchain, lastFocus, lastExtent}} and compares against
+  // WSI state each Present. The caller must invoke wsi::processWindowEvents()
+  // before this function (see D3D9SwapChainEx::Present).
   // ---------------------------------------------------------------------------
 
   struct NativeWindowData {
@@ -229,8 +231,6 @@ namespace dxvk
       entry = it->second;
     }
 
-    wsi::processWindowEvents();
-
     // isOccluded returns true only after the window has lost focus for >100ms,
     // giving the same hysteresis as the Win32 GetForegroundWindow approach.
     const bool hasFocus = !wsi::isOccluded(window);
@@ -261,7 +261,7 @@ namespace dxvk
         }
       }
 
-      if (entry.swapchain)
+      if (entry.swapchain && width > 0 && height > 0 && !wsi::isMinimized(window))
         entry.swapchain->InvalidateSwapchainExtent();
     }
   }

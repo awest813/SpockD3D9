@@ -85,7 +85,7 @@ The D3D9 shared library will be at `/your/install/dir/lib/libdxvk_d3d9.dylib`.
 
 ### Smoke test (`d3d9-clear`)
 
-After building, a minimal SDL3 sample is installed next to the library (with an SDL2 variant as `d3d9-clear-sdl2` when both are built). It creates a D3D9 device, clears the back buffer, and presents a few frames:
+After building, a minimal SDL3 sample is installed next to the library (`d3d9-clear-sdl2` is also built when both SDL3 and SDL2 are available). It creates a D3D9 device, clears the back buffer, and presents a few frames:
 
 ```bash
 export DYLD_LIBRARY_PATH="/your/install/dir/lib"

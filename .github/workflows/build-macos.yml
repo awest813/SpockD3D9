@@ -118,7 +118,8 @@ jobs:
           return 0
         }
 
-        # SDL3 binary is required when built; the SDL2 binary is best-effort.
+        # d3d9-clear prefers SDL3 when available, otherwise SDL2.
+        # d3d9-clear-sdl2 is built only when both SDL versions are present.
         run_smoke d3d9-clear
         run_smoke d3d9-clear-sdl2
 
