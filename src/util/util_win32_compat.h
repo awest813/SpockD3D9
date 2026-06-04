@@ -12,8 +12,28 @@
 
 #include "log/log.h"
 
+#if defined(__APPLE__)
+#include "util_env.h"
+#include "util_string.h"
+#endif
+
 inline HMODULE LoadLibraryA(LPCSTR lpLibFileName) {
-  return dlopen(lpLibFileName, RTLD_NOW);
+  if (HMODULE module = dlopen(lpLibFileName, RTLD_NOW))
+    return module;
+
+#if defined(__APPLE__)
+  // Homebrew libraries live outside dyld's default search path. When
+  // DYLD_LIBRARY_PATH is narrowed, bare sonames fail unless the fallback path
+  // was configured; probe known prefixes directly as a backstop.
+  for (const auto& prefix : dxvk::env::getHomebrewPrefixes()) {
+    const std::string path = dxvk::str::format(prefix, "/lib/", lpLibFileName);
+
+    if (HMODULE module = dlopen(path.c_str(), RTLD_NOW))
+      return module;
+  }
+#endif
+
+  return nullptr;
 }
 
 inline void FreeLibrary(HMODULE module) {

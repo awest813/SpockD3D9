@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "util_string.h"
 
 namespace dxvk::env {
@@ -75,5 +77,29 @@ namespace dxvk::env {
    * \returns \c true on success
    */
   bool createDirectory(const std::string& path);
+
+#if defined(__APPLE__)
+  /**
+   * \brief Homebrew install prefixes to probe on macOS
+   *
+   * Returns \c HOMEBREW_PREFIX when set, followed by the default Apple
+   * Silicon and Intel Homebrew locations.
+   */
+  std::vector<std::string> getHomebrewPrefixes();
+
+  /**
+   * \brief Prepare dyld and Vulkan loader environment on macOS
+   *
+   * When \c DYLD_LIBRARY_PATH is narrowed (e.g. to a SpockD3D9 install lib
+   * dir), dependent libraries such as SDL2 and libvulkan may not resolve
+   * unless Homebrew's lib directory is on the fallback search path. Also
+   * points the Vulkan loader at Homebrew's MoltenVK ICD manifest when the
+   * user has not already selected one.
+   *
+   * Safe to call multiple times. Must run before WSI or Vulkan libraries
+   * are loaded dynamically.
+   */
+  void prepareDarwinEnvironment();
+#endif
   
 }

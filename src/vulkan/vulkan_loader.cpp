@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <tuple>
@@ -8,24 +7,11 @@
 
 #include "../util/log/log.h"
 
+#include "../util/util_env.h"
 #include "../util/util_string.h"
 #include "../util/util_win32_compat.h"
 
 namespace dxvk::vk {
-
-#if defined(__APPLE__)
-  static std::vector<std::string> getHomebrewPrefixes() {
-    std::vector<std::string> prefixes;
-
-    if (const char* brewPrefix = std::getenv("HOMEBREW_PREFIX"))
-      prefixes.emplace_back(brewPrefix);
-
-    prefixes.emplace_back("/opt/homebrew"); // Apple Silicon default
-    prefixes.emplace_back("/usr/local");    // Intel default
-
-    return prefixes;
-  }
-#endif
 
   static std::vector<std::string> getVulkanLibraryCandidates() {
 #if defined(_WIN32)
@@ -56,7 +42,7 @@ namespace dxvk::vk {
     // Homebrew installs into <prefix>/lib, which is not on dyld's default search
     // path. Probe those absolute paths before bare sonames: hardened macOS builds
     // reject relative dlopen paths when DYLD_LIBRARY_PATH is set to a custom dir.
-    for (const auto& prefix : getHomebrewPrefixes()) {
+    for (const auto& prefix : env::getHomebrewPrefixes()) {
       for (auto dllName : dllNames)
         candidates.emplace_back(str::format(prefix, "/lib/", dllName));
     }
@@ -70,60 +56,9 @@ namespace dxvk::vk {
     return candidates;
   }
 
-#if defined(__APPLE__)
-  static bool fileExists(const std::string& path) {
-    if (FILE* file = std::fopen(path.c_str(), "r")) {
-      std::fclose(file);
-      return true;
-    }
-    return false;
-  }
-
-  // When DYLD_LIBRARY_PATH is narrowed, libvulkan's @rpath dependencies may not
-  // resolve unless Homebrew's lib dir is on the fallback search path (see
-  // vulkan.hpp's loader logic for the same workaround).
-  static void setupDyldFallbackLibraryPath() {
-    if (std::getenv("DYLD_FALLBACK_LIBRARY_PATH"))
-      return;
-
-    std::string fallback;
-
-    for (const auto& prefix : getHomebrewPrefixes()) {
-      if (!fallback.empty())
-        fallback += ':';
-
-      fallback += str::format(prefix, "/lib");
-    }
-
-    if (!fallback.empty())
-      setenv("DYLD_FALLBACK_LIBRARY_PATH", fallback.c_str(), 0);
-  }
-
-  // When using the full Vulkan loader (libvulkan.dylib) the MoltenVK ICD is
-  // discovered via a manifest in <prefix>/share/vulkan/icd.d. Homebrew's prefix
-  // is not on the loader's default manifest search path, so point it at the
-  // MoltenVK manifest if the user has not already selected an ICD. Loading
-  // libMoltenVK.dylib directly ignores this and is unaffected.
-  static void setupMoltenVkIcd() {
-    if (std::getenv("VK_ICD_FILENAMES") || std::getenv("VK_DRIVER_FILES"))
-      return;
-
-    for (const auto& prefix : getHomebrewPrefixes()) {
-      std::string manifest = str::format(prefix, "/share/vulkan/icd.d/MoltenVK_icd.json");
-
-      if (fileExists(manifest)) {
-        setenv("VK_ICD_FILENAMES", manifest.c_str(), 0);
-        Logger::info(str::format("Vulkan: Using MoltenVK ICD manifest ", manifest));
-        return;
-      }
-    }
-  }
-#endif
-
   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
 #if defined(__APPLE__)
-    setupDyldFallbackLibraryPath();
-    setupMoltenVkIcd();
+    env::prepareDarwinEnvironment();
 #endif
 
     for (const auto& dllName : getVulkanLibraryCandidates()) {
