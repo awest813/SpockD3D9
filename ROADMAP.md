@@ -56,7 +56,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 - [x] macOS meson adjustments (no `--build-id`, no static libgcc on darwin, native headers)
 - [x] WSI driver selection via `DXVK_WSI_DRIVER` and SDL2/SDL3/GLFW compile-time flags
 - [x] Vulkan loader tries MoltenVK on macOS (`src/vulkan/vulkan_loader.cpp`)
-- [x] Vulkan loader auto-discovers Homebrew-installed MoltenVK (`/opt/homebrew`, `/usr/local`, `$HOMEBREW_PREFIX`) and points the loader at the MoltenVK ICD manifest when no `DYLD_LIBRARY_PATH` / `VK_ICD_FILENAMES` is set (`src/vulkan/vulkan_loader.cpp`)
+- [x] Vulkan loader auto-discovers Homebrew-installed MoltenVK (`/opt/homebrew`, `/usr/local`, `$HOMEBREW_PREFIX`) and points the loader at the MoltenVK driver manifest when no `DYLD_LIBRARY_PATH` / `VK_DRIVER_FILES` / `VK_ICD_FILENAMES` is set (`src/util/util_env.cpp`, `src/vulkan/vulkan_loader.cpp`)
 - [x] Instance creation enables `VK_KHR_portability_enumeration` + `VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR` when supported, so the Khronos Vulkan loader reports the MoltenVK portability driver instead of returning "No adapters found" (`src/dxvk/dxvk_instance.cpp`)
 - [x] CI workflow: build both architectures, upload artifacts (`.github/workflows/build-macos.yml`)
 - [x] README: build instructions, configuration, debugging env vars

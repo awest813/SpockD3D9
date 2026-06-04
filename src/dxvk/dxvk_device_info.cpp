@@ -54,6 +54,7 @@ namespace dxvk {
     HANDLE_EXT(khrMaintenance9);                   \
     HANDLE_EXT(khrMaintenance10);                  \
     HANDLE_EXT(khrMaintenance11);                  \
+    HANDLE_EXT(khrPortabilitySubset);              \
     HANDLE_EXT(khrPipelineLibrary);                \
     HANDLE_EXT(khrPresentId);                      \
     HANDLE_EXT(khrPresentId2);                     \
@@ -773,6 +774,10 @@ namespace dxvk {
 
 
   std::vector<DxvkDeviceCapabilities::FeatureEntry> DxvkDeviceCapabilities::getFeatureList() {
+    // MoltenVK does not expose geometry shaders, and the default D3D9 build
+    // does not need them. Keep the requirement for other Vulkan drivers.
+    const bool requireGeometryShader = m_properties.vk12.driverID != VK_DRIVER_ID_MOLTENVK;
+
     #define ENABLE_FEATURE(version, name, require)        \
       FeatureEntry { nullptr, nullptr,                    \
         &m_featuresSupported.version.name,                \
@@ -804,7 +809,7 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, fillModeNonSolid, true),
       ENABLE_FEATURE(core.features, fragmentStoresAndAtomics, true),
       ENABLE_FEATURE(core.features, fullDrawIndexUint32, true),
-      ENABLE_FEATURE(core.features, geometryShader, true),
+      ENABLE_FEATURE(core.features, geometryShader, requireGeometryShader),
       ENABLE_FEATURE(core.features, imageCubeArray, true),
       ENABLE_FEATURE(core.features, independentBlend, true),
       ENABLE_FEATURE(core.features, largePoints, false),
@@ -998,6 +1003,9 @@ namespace dxvk {
       ENABLE_EXT_FEATURE(khrMaintenance9, maintenance9, false),
       ENABLE_EXT_FEATURE(khrMaintenance10, maintenance10, false),
       ENABLE_EXT_FEATURE(khrMaintenance11, maintenance11, false),
+
+      /* Required to create logical devices on Vulkan portability drivers. */
+      ENABLE_EXT(khrPortabilitySubset, false),
 
       /* Dependency for graphics pipeline library */
       ENABLE_EXT(khrPipelineLibrary, false),

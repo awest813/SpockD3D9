@@ -96,10 +96,11 @@ export DXVK_WSI_DRIVER=SDL2
 > **MoltenVK discovery:** SpockD3D9 automatically searches the common Homebrew
 > prefixes (`/opt/homebrew` on Apple Silicon, `/usr/local` on Intel, or
 > `$HOMEBREW_PREFIX`) for `libvulkan.dylib` / `libMoltenVK.dylib` and the
-> MoltenVK ICD manifest, so a Homebrew-installed MoltenVK works without setting
-> `DYLD_LIBRARY_PATH` or `VK_ICD_FILENAMES`. Set those variables to override the
-> auto-detected MoltenVK (e.g. a custom build). `DYLD_LIBRARY_PATH` above is only
-> needed to locate your freshly built `libdxvk_d3d9.dylib`.
+> MoltenVK driver manifest, so a Homebrew-installed MoltenVK works without
+> setting `DYLD_LIBRARY_PATH`, `VK_DRIVER_FILES`, or legacy
+> `VK_ICD_FILENAMES`. Set those variables to override the auto-detected
+> MoltenVK (e.g. a custom build). `DYLD_LIBRARY_PATH` above is only needed to
+> locate your freshly built `libdxvk_d3d9.dylib`.
 
 On success it prints `d3d9-clear: OK` and exits with code 0.
 
