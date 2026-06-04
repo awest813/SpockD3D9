@@ -2630,6 +2630,25 @@ namespace dxvk {
           m_dirty.set(D3D9DeviceDirtyFlag::FFVertexShader);
           break;
 
+        case D3DRS_WRAP0:
+        case D3DRS_WRAP1:
+        case D3DRS_WRAP2:
+        case D3DRS_WRAP3:
+        case D3DRS_WRAP4:
+        case D3DRS_WRAP5:
+        case D3DRS_WRAP6:
+        case D3DRS_WRAP7:
+        case D3DRS_WRAP8:
+        case D3DRS_WRAP9:
+        case D3DRS_WRAP10:
+        case D3DRS_WRAP11:
+        case D3DRS_WRAP12:
+        case D3DRS_WRAP13:
+        case D3DRS_WRAP14:
+        case D3DRS_WRAP15:
+          m_dirty.set(D3D9DeviceDirtyFlag::FFVertexData);
+          break;
+
         case D3DRS_ADAPTIVETESS_Y: {
           const uint32_t vendorId = m_adapter->GetVendorId();
 
@@ -8506,6 +8525,12 @@ namespace dxvk {
 
       data->Material = m_state.material;
       data->TweenFactor = bit::cast<float>(m_state.renderStates[D3DRS_TWEENFACTOR]);
+
+      for (uint32_t i = 0; i < caps::TextureStageCount; i++) {
+        data->WrapStage[i] = m_state.renderStates[D3DRS_WRAP0 + i];
+        data->WrapCoord[i] = m_state.renderStates[D3DRS_WRAP8 + i];
+      }
+
       data->Key = BuildFFKeyVS(vertexBlendMode, indexedVertexBlend).Data;
     }
 
@@ -8937,15 +8962,6 @@ namespace dxvk {
     // Render States not implemented beyond this point.
     rs[D3DRS_LASTPIXEL]                  = TRUE;
     rs[D3DRS_DITHERENABLE]               = FALSE;
-    rs[D3DRS_WRAP0]                      = 0;
-    rs[D3DRS_WRAP1]                      = 0;
-    rs[D3DRS_WRAP2]                      = 0;
-    rs[D3DRS_WRAP3]                      = 0;
-    rs[D3DRS_WRAP4]                      = 0;
-    rs[D3DRS_WRAP5]                      = 0;
-    rs[D3DRS_WRAP6]                      = 0;
-    rs[D3DRS_WRAP7]                      = 0;
-    rs[D3DRS_CLIPPING]                   = TRUE;
     rs[D3DRS_MULTISAMPLEANTIALIAS]       = TRUE;
     rs[D3DRS_PATCHEDGESTYLE]             = D3DPATCHEDGE_DISCRETE;
     rs[D3DRS_DEBUGMONITORTOKEN]          = D3DDMT_ENABLE;
@@ -8959,15 +8975,14 @@ namespace dxvk {
     rs[D3DRS_ADAPTIVETESS_Z]             = bit::cast<DWORD>(1.0f);
     rs[D3DRS_ADAPTIVETESS_W]             = bit::cast<DWORD>(0.0f);
     rs[D3DRS_ENABLEADAPTIVETESSELLATION] = FALSE;
-    rs[D3DRS_WRAP8]                      = 0;
-    rs[D3DRS_WRAP9]                      = 0;
-    rs[D3DRS_WRAP10]                     = 0;
-    rs[D3DRS_WRAP11]                     = 0;
-    rs[D3DRS_WRAP12]                     = 0;
-    rs[D3DRS_WRAP13]                     = 0;
-    rs[D3DRS_WRAP14]                     = 0;
-    rs[D3DRS_WRAP15]                     = 0;
     // End Unimplemented Render States
+
+    for (uint32_t i = 0; i < caps::TextureStageCount; i++) {
+      rs[D3DRS_WRAP0 + i]  = 0;
+      rs[D3DRS_WRAP8 + i]  = 0;
+    }
+
+    rs[D3DRS_CLIPPING]                   = TRUE;
 
     for (uint32_t i = 0; i < caps::TextureStageCount; i++) {
       auto& stage = m_state.textureStages[i];

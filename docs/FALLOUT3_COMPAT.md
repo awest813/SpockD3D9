@@ -33,9 +33,11 @@ non-D3D9 Win32 surface. Full rationale, the options table, and consequences are
 in [FALLOUT3_EXECUTION_MODEL.md](FALLOUT3_EXECUTION_MODEL.md). Host setup and the
 title profile live in [`tools/fallout3/`](../tools/fallout3/).
 
-**Next prerequisite this unlocks:** emit SpockD3D9 as an experimental PE
-`d3d9.dll` (MinGW cross-compile) behind an opt-in Meson target so an external
-host can load it — the default build emits a `.dylib`, which a host cannot use.
+**PE `d3d9.dll` scaffold (2026-06):** `-Denable_pe_d3d9=true` Meson option
+(default off), `cross/pe-x86_64-w64-mingw32.txt`, and
+[`scripts/build-pe-d3d9.sh`](../scripts/build-pe-d3d9.sh) cross-compile an
+experimental Windows `d3d9.dll` for external hosts. Boot-to-menu validation is
+still pending.
 
 ---
 

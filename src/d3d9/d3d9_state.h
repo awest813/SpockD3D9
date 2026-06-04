@@ -185,6 +185,9 @@ namespace dxvk {
     D3DMATERIAL9 Material;
     float TweenFactor;
 
+    std::array<uint32_t, caps::TextureStageCount> WrapStage = { };
+    std::array<uint32_t, caps::TextureStageCount> WrapCoord = { };
+
     D3D9FFShaderKeyVSData Key;
   };
 

@@ -83,6 +83,23 @@ ninja install
 
 The D3D9 shared library will be at `/your/install/dir/lib/libdxvk_d3d9.dylib`.
 
+### Experimental Windows PE `d3d9.dll` (optional)
+
+For hosting unmodified Windows D3D9 games through an external Wine / CrossOver /
+Game Porting Toolkit layer, SpockD3D9 can cross-compile an experimental
+`d3d9.dll` (not part of the blessed macOS native build):
+
+```bash
+brew install mingw-w64   # if not already installed
+./scripts/build-pe-d3d9.sh
+# Output: build-pe-d3d9/d3d9.dll
+```
+
+Use with a Windows host via `WINEDLLOVERRIDES="d3d9=n,b"`. See
+[docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) for the
+Fallout 3 hosting path and [ROADMAP.md](ROADMAP.md) Milestone F for validation
+status.
+
 ### Smoke test (`d3d9-clear`)
 
 After building, a minimal SDL3 sample is installed next to the library (`d3d9-clear-sdl2` is also built when both SDL3 and SDL2 are available). It creates a D3D9 device, clears the back buffer, and presents a few frames:

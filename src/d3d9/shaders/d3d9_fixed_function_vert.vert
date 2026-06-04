@@ -98,7 +98,10 @@ struct D3D9FixedFunctionVS {
     D3DMATERIAL9 Material;
     float TweenFactor;
 
-    uint KeyPrimitives[4];
+    uint WrapStage[TextureStageCount];
+    uint WrapCoord[TextureStageCount];
+
+    uint KeyPrimitives[5];
 };
 
 #define D3D9FF_VertexBlendMode uint
@@ -127,6 +130,19 @@ const uint DXVK_TSS_TCI_SPHEREMAP                   = 0x00040000;
 
 const uint TCIOffset = 16;
 const uint TCIMask = (7 << TCIOffset);
+
+// D3DRS_WRAP0-7 / D3DRS_WRAP8-15: strip the integer portion of enabled
+// texture coordinate components (D3DWRAP_U/V/W = bits 0/1/2).
+float wrapComponent(float v, bool enable) {
+    return enable ? fract(v) : v;
+}
+
+vec4 applyWrap(vec4 coord, uint wrapMask) {
+    coord.x = wrapComponent(coord.x, (wrapMask & 1u) != 0u);
+    coord.y = wrapComponent(coord.y, (wrapMask & 2u) != 0u);
+    coord.z = wrapComponent(coord.z, (wrapMask & 4u) != 0u);
+    return coord;
+}
 
 
 // Bindings have to match with D3D9ShaderResourceMapping in d3d9_shader.h
@@ -437,6 +453,9 @@ void main() {
     texCoords[6] = in_Texcoord6;
     texCoords[7] = in_Texcoord7;
 
+    for (uint i = 0; i < TextureStageCount; i++)
+        texCoords[i] = applyWrap(texCoords[i], data.WrapCoord[i]);
+
     vec4 transformedTexCoords[TextureStageCount];
 
     for (uint i = 0; i < TextureStageCount; i++) {
@@ -556,7 +575,7 @@ void main() {
             transformed[j] = 0.0;
         }
 
-        transformedTexCoords[i] = transformed;
+        transformedTexCoords[i] = applyWrap(transformed, data.WrapStage[i]);
     }
 
     out_Texcoord0 = transformedTexCoords[0];
