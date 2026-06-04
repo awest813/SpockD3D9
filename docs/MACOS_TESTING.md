@@ -93,9 +93,11 @@ Track progress against [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md) milestones
 
 ## 5. CI parity
 
-GitHub Actions runs the same native build + `d3d9-clear` smoke test on
-`macos-14` (arm64) and `macos-13` (x86_64), plus an optional PE cross-compile
-job when `mingw-w64` is available. See `.github/workflows/build-macos.yml`.
+GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
+(arm64) and `macos-13` (x86_64), plus an optional PE cross-compile job when
+`mingw-w64` is available. Universal fat binaries (`--arch universal`) are not
+built in CI — use the per-arch matrix artifacts or build slices locally. See
+`.github/workflows/build-macos.yml`.
 
 ## Troubleshooting
 

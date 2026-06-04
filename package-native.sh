@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SpockD3D9 - macOS native D3D9 packaging script
 # Builds for the host architecture (arm64 or x86_64) by default.
-# Use --arch universal for an arm64 + x86_64 fat binary via lipo.
+# Optional: --arch universal merges arm64 + x86_64 slices via lipo (manual only;
+# not exercised in CI — cross-slicing Objective-C++ WSI on Apple Silicon is fragile).
 
 set -e
 

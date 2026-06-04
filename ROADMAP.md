@@ -65,7 +65,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 - [x] `isOccluded` implemented for SDL2, SDL3, and GLFW (focus-loss with 100 ms hysteresis)
 - [x] SDL2 `enterFullscreenMode` now uses the mode saved by `setWindowMode` (parity with SDL3)
 - [x] GLFW `getDesktopDisplayMode` returns the largest available mode (native resolution)
-- [x] Universal binary (`lipo`) via `./package-native.sh … --arch universal`
+- [x] Universal binary (`lipo`) via `./package-native.sh … --arch universal` — optional/manual only; CI uses per-arch native runners instead
 - [x] SDL/GLFW window lifecycle polling → focus + resize → swapchain extent invalidation
 - [x] `GetDeviceCaps` uses Vulkan-derived texture dims, anisotropy, and volume extent; removes false MSAA-toggle and wideLines-conditioned AA-lines cap
 - [x] MoltenVK format limits documented (`docs/MOLTENVK_CAPABILITIES.md`, README)

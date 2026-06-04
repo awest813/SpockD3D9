@@ -5,7 +5,7 @@
 #   brew install meson ninja glslang sdl3 sdl2 molten-vk vulkan-loader
 #
 # Usage:
-#   ./scripts/test-macos-native.sh [--arch arm64|x86_64|universal] [--frames N]
+#   ./scripts/test-macos-native.sh [--arch arm64|x86_64] [--frames N]
 
 set -euo pipefail
 
@@ -17,9 +17,10 @@ FRAMES=60
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--arch arm64|x86_64|universal] [--frames N]
+Usage: $(basename "$0") [--arch arm64|x86_64] [--frames N]
 
 Build SpockD3D9 natively and run the d3d9-clear smoke test.
+Per-arch only; universal lipo is not supported here (see package-native.sh).
 EOF
 }
 

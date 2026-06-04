@@ -129,7 +129,9 @@ in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).
 
 ### Cross-Architecture Build
 
-To build for a specific architecture on a universal Mac:
+CI builds each architecture on a native runner (`arm64` on Apple Silicon, `x86_64`
+on Intel). For local per-arch builds on a universal Mac:
+
 ```bash
 # Build for Apple Silicon
 CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" OBJCFLAGS="-arch arm64" OBJCXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
@@ -141,6 +143,10 @@ CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" OBJCFLAGS="-arch x86_64" OBJCXXFLA
   meson setup --buildtype release build.x86_64
 ninja -C build.x86_64
 ```
+
+An optional fat binary via `lipo` is available manually
+(`./package-native.sh … --arch universal`) but is not part of CI — cross-slicing
+Objective-C++ WSI sources on Apple Silicon remains fragile.
 
 ## Usage in Your Application
 
