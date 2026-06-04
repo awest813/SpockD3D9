@@ -39,10 +39,10 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 | MoltenVK loader (`libvulkan.dylib` / `libMoltenVK.dylib`) | Done (auto-discovers Homebrew prefixes + ICD manifest) |
 | Tiler GPU hints (`VK_DRIVER_ID_MOLTENVK`) | Done (upstream) |
 | Runtime smoke test / sample app | Done (`d3d9-clear` SDL3 + SDL2 fallback, CI smoke step) |
-| Game compatibility matrix | Partial (`COMPATIBILITY.md` — profiles + reference ports; needs macOS testing) |
+| Game compatibility matrix | Partial (`COMPATIBILITY.md` — shipped profiles + samples; per-title macOS runs pending) |
 | macOS EDID / HDR metadata | Done (EDID read on macOS; colorimetry via GetCurrentOutputDesc) |
 | Native D3D9 cursor | Done (SDL2/SDL3/GLFW HW + software compositing) |
-| `isOccluded` for present throttling | Done (SDL2/SDL3/GLFW focus tracking) |
+| `isOccluded` for present throttling | Done (WSI + D3D9 Present skip when minimized / occluded FS) |
 | Window focus/resize → swapchain invalidation | Done (SDL/GLFW lifecycle polling + Win32 WM_SIZE) |
 | SDL2 fullscreen parity with SDL3 | Done |
 | `GetDeviceCaps` Vulkan-derived limits | Done (anisotropy, texture dims, MSAA honesty) |
@@ -76,7 +76,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 - [x] macOS-focused `dxvk.conf` platform profile (`tools/macos/macos.dxvk.conf`)
 - [x] SDL3 as recommended WSI backend (README, CI, smoke test defaults)
 - [x] Window lifecycle hooks: SDL/GLFW resize + focus → swapchain extent invalidation
-- [x] HDR colorimetry via EDID in `GetCurrentOutputDesc`
+- [x] D3D9 `Present` skips Vulkan work when minimized or fullscreen-occluded (parity with DXGI throttling)
 
 ---
 
@@ -107,7 +107,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 
 ### Milestone D — Production hardening
 
-- [ ] Game compatibility table (title → status → `dxvk.conf` profile) — reference ports and upstream profiles in `COMPATIBILITY.md`; needs verified macOS runs
+- [x] Game compatibility table (title → status → `dxvk.conf` profile) — shipped profiles in `COMPATIBILITY.md` + `tools/`; per-title macOS verification still pending
 - [x] Universal dylib via `lipo` in `package-native.sh`
 - [x] Performance notes for tiler mode (`dxvk.tilerMode` in `dxvk.conf`)
 - [x] macOS-focused issue template (`.github/ISSUE_TEMPLATE/bug_report_macos.md`)

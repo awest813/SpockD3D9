@@ -175,6 +175,17 @@ namespace dxvk {
     UpdatePresentRegion(pSourceRect, pDestRect);
     UpdatePresentParameters();
 
+    // Skip Vulkan presentation when the window is not visible. Mirrors DXGI
+    // present throttling and avoids burning GPU time on minimized or occluded
+    // fullscreen swap chains.
+    if (wsi::isWindow(m_window)) {
+      if (wsi::isMinimized(m_window))
+        return D3D_OK;
+
+      if (!m_presentParams.Windowed && wsi::isOccluded(m_window))
+        return D3D_OK;
+    }
+
     if (!SwapWithFrontBuffer() && m_parent->GetOptions()->extraFrontbuffer) {
       // We never actually rotate in the front buffer.
       // Just blit to it for GetFrontBufferData.
