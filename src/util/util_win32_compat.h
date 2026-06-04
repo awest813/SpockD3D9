@@ -47,6 +47,7 @@ inline void* GetProcAddress(HMODULE module, LPCSTR lpProcName) {
 enum class NativeHandleKind : uint32_t {
   Semaphore = 0x534D5048u,  // 'SMPH'
   Event     = 0x45564E54u,  // 'EVNT'
+  GdiDc     = 0x47444943u,  // 'GDIC'
 };
 
 struct NativeHandleHeader {
@@ -75,10 +76,16 @@ struct NativeEventHandle {
   bool                    signaled;
 };
 
+// Minimal memory-DC handle for native builds. GDI itself is Windows-only, but
+// some Windows-facing code only needs CreateCompatibleDC/DeleteDC to hand out a
+// stable non-null token for setup/teardown paths.
+struct NativeGdiDcHandle {
+  NativeHandleHeader      header;
+};
+
 // Validate a HANDLE and return its header if it is one of our tagged native
-// objects, or nullptr otherwise.  The kind check guards against null,
-// INVALID_HANDLE_VALUE (the GetCurrentProcess pseudo-handle), and foreign
-// pointers before any type-specific cast.
+// objects, or nullptr otherwise.  This is intended for handles returned by this
+// shim layer; arbitrary foreign pointers cannot be probed safely in portable C++.
 inline NativeHandleHeader* GetNativeHandleHeader(HANDLE hObject) {
   if (!hObject || hObject == INVALID_HANDLE_VALUE)
     return nullptr;
@@ -87,6 +94,7 @@ inline NativeHandleHeader* GetNativeHandleHeader(HANDLE hObject) {
   switch (header->kind) {
     case NativeHandleKind::Semaphore:
     case NativeHandleKind::Event:
+    case NativeHandleKind::GdiDc:
       return header;
     default:
       return nullptr;
@@ -283,6 +291,10 @@ inline BOOL DuplicateHandle(
   if (!header)
     return FALSE;
 
+  if (header->kind != NativeHandleKind::Semaphore
+   && header->kind != NativeHandleKind::Event)
+    return FALSE;
+
   // DUPLICATE_CLOSE_SOURCE closes the source as part of the operation, so the
   // net reference count is unchanged (one handle consumed, one produced).
   // Otherwise we add a reference for the freshly minted target handle.
@@ -309,6 +321,10 @@ inline BOOL CloseHandle(HANDLE hObject) {
       dxvk::Logger::warn("CloseHandle: unknown handle type.");
     return FALSE;
   }
+
+  // HDC objects are intentionally managed by DeleteDC, not CloseHandle.
+  if (header->kind == NativeHandleKind::GdiDc)
+    return FALSE;
 
   // Only the thread that observes the count drop to zero destroys the object.
   if (header->refCount.fetch_sub(1, std::memory_order_acq_rel) != 1)
@@ -354,15 +370,23 @@ inline BOOL ProcessIdToSessionId(DWORD /* pid */, DWORD* id) {
 }
 
 // ---------------------------------------------------------------------------
-// GDI DC stubs — GDI device contexts are Windows-only
+// GDI DC compatibility
 // ---------------------------------------------------------------------------
 
 inline HDC CreateCompatibleDC(HDC /* hdc */) {
-  return nullptr;
+  auto* dc = new NativeGdiDcHandle();
+  dc->header.kind = NativeHandleKind::GdiDc;
+  dc->header.refCount.store(1, std::memory_order_relaxed);
+  return static_cast<HDC>(dc);
 }
 
-inline BOOL DeleteDC(HDC /* hdc */) {
-  return FALSE;
+inline BOOL DeleteDC(HDC hdc) {
+  auto* header = GetNativeHandleHeader(static_cast<HANDLE>(hdc));
+  if (!header || header->kind != NativeHandleKind::GdiDc)
+    return FALSE;
+
+  delete static_cast<NativeGdiDcHandle*>(static_cast<HANDLE>(hdc));
+  return TRUE;
 }
 
 #endif

@@ -3,7 +3,8 @@
 //
 // These cover the handle objects SpockD3D9 emulates on macOS/Linux:
 // semaphores, events (auto- and manual-reset), WaitForSingleObject(Ex)
-// timeouts, DuplicateHandle reference sharing, and CloseHandle teardown.
+// timeouts, DuplicateHandle reference sharing, CloseHandle teardown, and
+// minimal GDI memory-DC lifecycle shims.
 //
 // The test is intentionally hermetic: it includes the real shim header and
 // stubs the single Logger symbol the header references, so it builds with a
@@ -136,6 +137,28 @@ static void test_duplicate_handle() {
   CHECK(CloseHandle(moved) == TRUE); // only one close needed
 }
 
+static void test_gdi_dc_lifecycle() {
+  HDC dc = CreateCompatibleDC(nullptr);
+  CHECK(dc != nullptr);
+
+  HDC compatible = CreateCompatibleDC(dc);
+  CHECK(compatible != nullptr);
+
+  // HDCs are not waitable kernel objects and are deleted with DeleteDC, not
+  // CloseHandle or DuplicateHandle.
+  CHECK(WaitForSingleObject(static_cast<HANDLE>(dc), 0) == WAIT_FAILED);
+  CHECK(CloseHandle(static_cast<HANDLE>(dc)) == FALSE);
+
+  HANDLE dup = reinterpret_cast<HANDLE>(0x1);
+  CHECK(DuplicateHandle(nullptr, static_cast<HANDLE>(dc), nullptr, &dup, 0, FALSE, 0) == FALSE);
+  CHECK(dup == nullptr);
+
+  CHECK(DeleteDC(nullptr) == FALSE);
+
+  CHECK(DeleteDC(compatible) == TRUE);
+  CHECK(DeleteDC(dc) == TRUE);
+}
+
 static void test_invalid_inputs() {
   CHECK(SetEvent(nullptr) == FALSE);
   CHECK(ResetEvent(INVALID_HANDLE_VALUE) == FALSE);
@@ -155,6 +178,7 @@ int main() {
   test_auto_reset_event();
   test_manual_reset_event();
   test_duplicate_handle();
+  test_gdi_dc_lifecycle();
   test_invalid_inputs();
 
   if (g_failures == 0) {

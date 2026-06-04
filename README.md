@@ -13,7 +13,7 @@ The work happens in two layers:
 1. **Native D3D9 → Vulkan translation library** (the foundation) — `libdxvk_d3d9.dylib` implements the D3D9 API and translates it to Vulkan (then Metal), using SDL2/SDL3/GLFW for windowing instead of Win32. This layer works today for native ports and custom renderers, and is the engine every hosted Windows game will ultimately render through.
 2. **Windows D3D9 game hosting** (the remaining gap) — a wrapper or translation layer that hosts Windows game logic and routes its `d3d9.dll` calls into SpockD3D9. This layer is under development and is what closes the gap to running unmodified Windows games; it depends on the Win32 compatibility shims tracked in [ROADMAP.md](ROADMAP.md) (Milestone E).
 
-The first retail compatibility target — the beachhead that proves the full path end to end — is **Fallout 3 (Steam, Windows, D3D9 / Gamebryo engine)**. See [COMPATIBILITY.md](COMPATIBILITY.md) for the per-title tracker and [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed Fallout 3 compatibility checklist.
+The first retail compatibility target — the beachhead that proves the full path end to end — is **Fallout 3 (Steam, Windows, D3D9 / Gamebryo engine)**. The broader benchmark set is **Fallout 3**, **Fallout: New Vegas**, **Dragon Age: Origins**, and **Galactic Civilizations II**; see [COMPATIBILITY.md](COMPATIBILITY.md) for the per-title tracker, [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed Fallout 3 checklist, and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) for the shared benchmark milestones.
 
 ## Supported Platforms
 
