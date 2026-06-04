@@ -85,12 +85,27 @@ project does not commit to it; see the decision record for why.
    export DXVK_LOG_LEVEL=info   # use 'debug' for deep traces
    ```
 
+## Boot to menu (V3)
+
+End-to-end workflow for reaching the main menu:
+
+```bash
+./scripts/build-pe-d3d9.sh
+./scripts/prepare-fallout3-host.sh --game-dir "/path/to/Fallout 3" --build
+./scripts/launch-fallout3-host.sh --game-dir "/path/to/Fallout 3"
+./scripts/check-boot-logs.sh "/path/to/Fallout 3/fallout3-spockd3d9.log"
+```
+
+Full checklist, troubleshooting, and V4 criteria:
+[docs/BOOT_TO_MENU.md](../../docs/BOOT_TO_MENU.md).
+
 ## Validating progress
 
 Track results against the V1–V10 validation milestones in
 [docs/FALLOUT3_COMPAT.md](../../docs/FALLOUT3_COMPAT.md#validation-milestones).
 The earliest signal that the override is wired up correctly is a SpockD3D9
 banner line in the host's console output and `Direct3DCreate9` succeeding (V1).
+After device creation, look for `D3D9: CreateDeviceEx OK` in the log (V3).
 
 ## Profile keys
 

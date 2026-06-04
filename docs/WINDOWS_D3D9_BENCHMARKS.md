@@ -33,6 +33,11 @@ The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
 
+## Boot-to-menu workflow (Fallout 3)
+
+Automated helpers and V3/V4 criteria:
+[BOOT_TO_MENU.md](BOOT_TO_MENU.md).
+
 ## Common first-boot validation
 
 Track every title through the same milestones so regressions are comparable:
