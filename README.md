@@ -2,7 +2,7 @@
 
 A macOS-native Direct3D 9 translation layer — translating D3D9 API calls to Vulkan (via [MoltenVK](https://github.com/KhronosGroup/MoltenVK)) on Apple Silicon and Intel Macs.
 
-This is a focused fork of [DXVK](https://github.com/doitsujin/dxvk), stripped down to only the D3D9 translation layer and targeting macOS as a first-class platform. It uses [DXVK Native](https://github.com/doitsujin/dxvk#dxvk-native) mode with SDL2/SDL3/GLFW for window management.
+This is a focused fork of [DXVK](https://github.com/doitsujin/dxvk), stripped down to only the D3D9 translation layer and targeting macOS as a first-class platform. It uses [DXVK Native](https://github.com/doitsujin/dxvk#dxvk-native) mode with SDL3/SDL2/GLFW for window management.
 
 ## Project Direction
 
@@ -10,7 +10,7 @@ SpockD3D9's north-star goal is **full compatibility with Windows D3D9 games on m
 
 The work happens in two layers:
 
-1. **Native D3D9 → Vulkan translation library** (the foundation) — `libdxvk_d3d9.dylib` implements the D3D9 API and translates it to Vulkan (then Metal), using SDL2/SDL3/GLFW for windowing instead of Win32. This layer works today for native ports and custom renderers, and is the engine every hosted Windows game will ultimately render through.
+1. **Native D3D9 → Vulkan translation library** (the foundation) — `libdxvk_d3d9.dylib` implements the D3D9 API and translates it to Vulkan (then Metal), using SDL3/SDL2/GLFW for windowing instead of Win32. This layer works today for native ports and custom renderers, and is the engine every hosted Windows game will ultimately render through.
 2. **Windows D3D9 game hosting** (the remaining gap) — a wrapper or translation layer that hosts Windows game logic and routes its `d3d9.dll` calls into SpockD3D9. This layer is under development and is what closes the gap to running unmodified Windows games; it depends on the Win32 compatibility shims tracked in [ROADMAP.md](ROADMAP.md) (Milestone E).
 
 The first retail compatibility target — the beachhead that proves the full path end to end — is **Fallout 3 (Steam, Windows, D3D9 / Gamebryo engine)**. The broader benchmark set is **Fallout 3**, **Fallout: New Vegas**, **Dragon Age: Origins**, and **Galactic Civilizations II**; see [COMPATIBILITY.md](COMPATIBILITY.md) for the per-title tracker, [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the detailed Fallout 3 checklist, and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) for the shared benchmark milestones.
@@ -30,13 +30,13 @@ SpockD3D9 provides a native shared library (`libdxvk_d3d9.dylib`) that implement
 
 SpockD3D9 requires one of these windowing backends:
 
-- **SDL2** (recommended) — most widely available on macOS
-- **SDL3** — newer alternative
+- **SDL3** (recommended) — most complete fullscreen and multi-monitor path on macOS
+- **SDL2** — widely available fallback
 - **GLFW** — lightweight alternative
 
 Set the backend via the `DXVK_WSI_DRIVER` environment variable:
 ```bash
-export DXVK_WSI_DRIVER=SDL2    # or SDL3, GLFW
+export DXVK_WSI_DRIVER=SDL3    # or SDL2, GLFW
 ```
 
 ## Prerequisites
@@ -46,11 +46,11 @@ export DXVK_WSI_DRIVER=SDL2    # or SDL3, GLFW
 - [Meson](https://mesonbuild.com/) build system (≥ 0.58)
 - A C++17 compiler (Apple Clang from Xcode)
 - [glslang](https://github.com/KhronosGroup/glslang) shader compiler
-- One of: SDL2, SDL3, or GLFW
+- One of: SDL3 (recommended), SDL2, or GLFW
 
 Install all dependencies with Homebrew:
 ```bash
-brew install meson ninja glslang sdl2 molten-vk vulkan-loader vulkan-headers spirv-headers
+brew install meson ninja glslang sdl3 sdl2 molten-vk vulkan-loader vulkan-headers spirv-headers
 ```
 
 `vulkan-loader` (the Khronos `libvulkan.dylib`) is optional but recommended:
@@ -85,11 +85,11 @@ The D3D9 shared library will be at `/your/install/dir/lib/libdxvk_d3d9.dylib`.
 
 ### Smoke test (`d3d9-clear`)
 
-After building, a minimal SDL2 sample is installed next to the library. It creates a D3D9 device, clears the back buffer, and presents a few frames:
+After building, a minimal SDL3 sample is installed next to the library (with an SDL2 variant as `d3d9-clear-sdl2` when both are built). It creates a D3D9 device, clears the back buffer, and presents a few frames:
 
 ```bash
 export DYLD_LIBRARY_PATH="/your/install/dir/lib"
-export DXVK_WSI_DRIVER=SDL2
+export DXVK_WSI_DRIVER=SDL3
 /your/install/dir/lib/d3d9-clear 60   # optional frame count (default: 60)
 ```
 
@@ -119,11 +119,11 @@ ninja -C build.x86_64
 
 ## Usage in Your Application
 
-Link your application against `libdxvk_d3d9.dylib` and use the D3D9 API as normal. Your application must use one of the supported WSI backends (SDL2, SDL3, or GLFW) for window creation.
+Link your application against `libdxvk_d3d9.dylib` and use the D3D9 API as normal. Your application must use one of the supported WSI backends (SDL3, SDL2, or GLFW) for window creation.
 
 ```cpp
 // Instead of HWND, use SDL_Window* (or equivalent)
-// Set DXVK_WSI_DRIVER=SDL2 before running
+// Set DXVK_WSI_DRIVER=SDL3 before running
 ```
 
 See the [DXVK Native documentation](https://github.com/doitsujin/dxvk#dxvk-native) for details on adapting a D3D9 renderer for native use:

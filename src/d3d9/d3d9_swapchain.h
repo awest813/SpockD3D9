@@ -122,6 +122,8 @@ namespace dxvk {
 
     void    Invalidate(HWND hWindow);
 
+    void    InvalidateSwapchainExtent();
+
     void SetCursorTexture(UINT Width, UINT Height, uint8_t* pCursorBitmap);
 
     void SetCursorPosition(int32_t X, int32_t Y, UINT Width, UINT Height);

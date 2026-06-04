@@ -99,8 +99,10 @@ namespace dxvk
       D3DDEVICE_CREATION_PARAMETERS create_parms;
       device->GetCreationParameters(&create_parms);
 
-      if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES) && !IsIconic(window))
+      if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES) && !IsIconic(window)) {
         PostMessageW(window, WM_ACTIVATEAPP, 1, GetCurrentThreadId());
+        windowData.swapchain->InvalidateSwapchainExtent();
+      }
     }
 
     return CallCharsetFunction(
@@ -165,21 +167,23 @@ namespace dxvk
 
   // On Win32 focus transitions are delivered via the subclassed WndProc;
   // this polling path is only used on non-Win32 backends.
-  void PollWindowFocusForHook(HWND window) {
+  void PollWindowLifecycleForHook(HWND window) {
   }
 
 #else
   // ---------------------------------------------------------------------------
-  // Non-Win32 (SDL2 / SDL3 / GLFW) window focus tracking
+  // Non-Win32 (SDL2 / SDL3 / GLFW) window lifecycle tracking
   //
   // On non-Win32 backends there is no passive WndProc hook, so we maintain a
-  // simple {HWND → {swapchain, lastFocused}} map and poll WSI each frame from
-  // Present via PollWindowFocusForHook.
+  // simple {HWND → {swapchain, lastFocused, lastExtent}} map and poll WSI each
+  // frame from Present via PollWindowLifecycleForHook.
   // ---------------------------------------------------------------------------
 
   struct NativeWindowData {
-    D3D9SwapChainEx* swapchain = nullptr;
-    bool             lastFocus = false;
+    D3D9SwapChainEx* swapchain   = nullptr;
+    bool             lastFocus   = false;
+    uint32_t         lastWidth   = 0;
+    uint32_t         lastHeight  = 0;
   };
 
   static dxvk::mutex                                        g_nativeWindowMutex;
@@ -204,6 +208,7 @@ namespace dxvk
     NativeWindowData data;
     data.swapchain  = swapchain;
     data.lastFocus  = !wsi::isOccluded(window);
+    wsi::getWindowSize(window, &data.lastWidth, &data.lastHeight);
     g_nativeWindowMap[window] = data;
   }
 
@@ -213,7 +218,7 @@ namespace dxvk
   void ActivateFocusWindow(HWND window) {
   }
 
-  void PollWindowFocusForHook(HWND window) {
+  void PollWindowLifecycleForHook(HWND window) {
     NativeWindowData entry;
 
     {
@@ -224,22 +229,41 @@ namespace dxvk
       entry = it->second;
     }
 
+    wsi::processWindowEvents();
+
     // isOccluded returns true only after the window has lost focus for >100ms,
     // giving the same hysteresis as the Win32 GetForegroundWindow approach.
     const bool hasFocus = !wsi::isOccluded(window);
 
-    if (hasFocus == entry.lastFocus)
-      return;
+    if (hasFocus != entry.lastFocus) {
+      {
+        std::lock_guard lock(g_nativeWindowMutex);
+        auto it = g_nativeWindowMap.find(window);
+        if (it != g_nativeWindowMap.end())
+          it->second.lastFocus = hasFocus;
+      }
 
-    {
-      std::lock_guard lock(g_nativeWindowMutex);
-      auto it = g_nativeWindowMap.find(window);
-      if (it != g_nativeWindowMap.end())
-        it->second.lastFocus = hasFocus;
+      if (entry.swapchain)
+        entry.swapchain->GetParent()->NotifyWindowActivated(window, hasFocus);
     }
 
-    if (entry.swapchain)
-      entry.swapchain->GetParent()->NotifyWindowActivated(window, hasFocus);
+    uint32_t width = 0;
+    uint32_t height = 0;
+    wsi::getWindowSize(window, &width, &height);
+
+    if (width != entry.lastWidth || height != entry.lastHeight) {
+      {
+        std::lock_guard lock(g_nativeWindowMutex);
+        auto it = g_nativeWindowMap.find(window);
+        if (it != g_nativeWindowMap.end()) {
+          it->second.lastWidth  = width;
+          it->second.lastHeight = height;
+        }
+      }
+
+      if (entry.swapchain)
+        entry.swapchain->InvalidateSwapchainExtent();
+    }
   }
 
 #endif

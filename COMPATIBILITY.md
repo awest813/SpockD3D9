@@ -50,7 +50,7 @@ See [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the full per-subsyste
 
 | Title / sample | Status | WSI | Notes | `dxvk.conf` |
 |----------------|--------|-----|-------|-------------|
-| `d3d9-clear` (built-in smoke test) | **Works** | SDL2 | Clears back buffer and presents; exercised in CI | *(none)* |
+| `d3d9-clear` (built-in smoke test) | **Works** | SDL3 | Clears back buffer and presents; exercised in CI | *(none)* |
 
 ---
 
@@ -101,7 +101,7 @@ SpockD3D9 selects the target monitor from the window position (`getWindowMonitor
 Test multi-monitor with:
 
 ```bash
-export DXVK_WSI_DRIVER=SDL2   # or SDL3, GLFW
+export DXVK_WSI_DRIVER=SDL3   # or SDL2, GLFW
 export DXVK_LOG_LEVEL=info
 your_app
 ```
@@ -158,7 +158,7 @@ mkdir -p /tmp/dxvk-logs
 
 1. Application name and how it links SpockD3D9
 2. macOS version, chip (Apple Silicon / Intel), GPU
-3. `DXVK_WSI_DRIVER` (SDL2 / SDL3 / GLFW)
+3. `DXVK_WSI_DRIVER` (SDL3 / SDL2 / GLFW)
 4. MoltenVK version (`brew info molten-vk`)
 5. Windowed vs fullscreen, single vs multi-monitor
 6. Relevant `dxvk.conf` and `DXVK_LOG_LEVEL=debug` logs

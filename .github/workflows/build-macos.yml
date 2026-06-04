@@ -118,10 +118,9 @@ jobs:
           return 0
         }
 
-        # SDL2 binary is required; the SDL3 binary is best-effort (only built
-        # when the sdl3 dependency is present).
+        # SDL3 binary is required when built; the SDL2 binary is best-effort.
         run_smoke d3d9-clear
-        run_smoke d3d9-clear-sdl3
+        run_smoke d3d9-clear-sdl2
 
     - name: Smoke test MoltenVK auto-discovery (clean env)
       run: |

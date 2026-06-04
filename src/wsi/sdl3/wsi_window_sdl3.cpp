@@ -223,6 +223,11 @@ namespace dxvk::wsi {
   }
 
 
+  void Sdl3WsiDriver::processWindowEvents() {
+    SDL_PumpEvents();
+  }
+
+
   void Sdl3WsiDriver::updateFullscreenWindow(
           HMONITOR hMonitor,
           HWND     hWindow,

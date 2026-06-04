@@ -94,6 +94,8 @@ namespace dxvk::wsi {
 
     virtual bool isOccluded(HWND hWindow) = 0;
 
+    virtual void processWindowEvents() = 0;
+
     virtual void updateFullscreenWindow(
             HMONITOR hMonitor,
             HWND     hWindow,

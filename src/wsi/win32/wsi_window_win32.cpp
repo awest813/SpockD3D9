@@ -310,6 +310,10 @@ namespace dxvk::wsi {
   }
 
 
+  void Win32WsiDriver::processWindowEvents() {
+  }
+
+
   void Win32WsiDriver::updateFullscreenWindow(
           HMONITOR hMonitor,
           HWND     hWindow,

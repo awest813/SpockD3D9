@@ -191,6 +191,14 @@ namespace dxvk::wsi {
   bool isOccluded(HWND hWindow);
 
   /**
+    * \brief Pump pending windowing events
+    *
+    * Processes SDL/GLFW event queues so subsequent size and focus queries
+    * reflect the latest window state. No-op on Win32.
+    */
+  void processWindowEvents();
+
+  /**
     * \brief Update a fullscreen window's position/size
     *
     * \param [in] hMonitor The monitor

@@ -163,7 +163,7 @@ namespace dxvk {
       return D3D_OK;
 
 #ifndef _WIN32
-    PollWindowFocusForHook(m_window);
+    PollWindowLifecycleForHook(m_window);
 #endif
 
     if (options->deferSurfaceCreation && IsDeviceReset(m_wctx))
@@ -783,6 +783,14 @@ namespace dxvk {
   }
 
 
+  void D3D9SwapChainEx::InvalidateSwapchainExtent() {
+    m_displayRefreshRateDirty = true;
+
+    if (m_wctx && m_wctx->presenter)
+      m_wctx->presenter->invalidateSurface();
+  }
+
+
   void D3D9SwapChainEx::SetCursorTexture(UINT Width, UINT Height, uint8_t* pCursorBitmap) {
       VkExtent2D cursorSize = { uint32_t(Width), uint32_t(Height) };
 
@@ -1397,7 +1405,6 @@ namespace dxvk {
 
     RECT dstRect;
     if (pDestRect == nullptr || !isWindowed) {
-      // TODO: Should we hook WM_SIZE message for this?
       dstRect.top    = 0;
       dstRect.left   = 0;
       dstRect.right  = LONG(width);
@@ -1501,10 +1508,12 @@ namespace dxvk {
 
   HRESULT STDMETHODCALLTYPE D3D9VkExtSwapchain::GetCurrentOutputDesc(
           D3D9VkExtOutputMetadata   *pOutputDesc) {
+    if (!pOutputDesc)
+      return D3DERR_INVALIDCALL;
+
     HMONITOR monitor = m_swapchain->m_monitor;
     if (!monitor)
       monitor = getSwapChainTargetMonitor(m_swapchain->m_window);
-    // ^ this should be the display we are mostly covering someday.
 
     wsi::WsiEdidData edidData = wsi::getMonitorEdid(monitor);
     wsi::WsiDisplayMetadata metadata = {};
@@ -1516,7 +1525,7 @@ namespace dxvk {
       if (r_metadata)
         metadata = *r_metadata;
       else
-        Logger::err("D3D9: Failed to parse display metadata + colorimetry info, using blank.");
+        Logger::warn("D3D9: No EDID colorimetry for monitor; using normalized defaults.");
     }
 
 

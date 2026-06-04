@@ -1,3 +1,4 @@
+GLFW_PROC(void, glfwPollEvents, (void))
 GLFW_PROC(VkResult, glfwCreateWindowSurface, (VkInstance, GLFWwindow*, const VkAllocationCallbacks*, VkSurfaceKHR*))
 GLFW_PROC(GLFWmonitor**, glfwGetMonitors, (int*))
 GLFW_PROC(void, glfwGetMonitorWorkarea, (GLFWmonitor*, int*, int*, int*, int*))
