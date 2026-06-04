@@ -137,6 +137,10 @@ namespace dxvk::wsi {
     return s_driver->isOccluded(hWindow);
   }
 
+  void processWindowEvents() {
+    s_driver->processWindowEvents();
+  }
+
   void updateFullscreenWindow(
           HMONITOR hMonitor,
           HWND     hWindow,

@@ -9,6 +9,7 @@
 #include "../../util/log/log.h"
 
 #include <windows.h>
+#include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
 namespace dxvk::wsi {
@@ -220,6 +221,11 @@ namespace dxvk::wsi {
     }
 
     return m_lastFocusTimestamp != 0 && SDL_GetTicks() - m_lastFocusTimestamp > 100;
+  }
+
+
+  void Sdl3WsiDriver::processWindowEvents() {
+    SDL_PumpEvents();
   }
 
 

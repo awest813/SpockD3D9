@@ -34,6 +34,6 @@ namespace dxvk {
   void HookWindowProc(HWND window, D3D9SwapChainEx* swapchain);
   void SetActivateProcessed(HWND window, bool processed);
   void ActivateFocusWindow(HWND window);
-  void PollWindowFocusForHook(HWND window);
+  void PollWindowLifecycleForHook(HWND window);
 
 }

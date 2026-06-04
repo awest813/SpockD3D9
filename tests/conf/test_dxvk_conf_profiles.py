@@ -28,6 +28,7 @@ REQUIRED_PROFILES = {
     os.path.join("tools", "fallout-new-vegas", "fallout-new-vegas.dxvk.conf"),
     os.path.join("tools", "dragon-age-origins", "dragon-age-origins.dxvk.conf"),
     os.path.join("tools", "galactic-civilizations-ii", "galactic-civilizations-ii.dxvk.conf"),
+    os.path.join("tools", "macos", "macos.dxvk.conf"),
 }
 
 # A "section.key" token, e.g. d3d9.shaderModel or dxvk.tilerMode.

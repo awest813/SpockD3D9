@@ -1,11 +1,12 @@
 /**
  * Minimal SpockD3D9 / DXVK-native smoke test.
  *
- * Creates an SDL2 or SDL3 window, a D3D9 device, clears the back buffer, and
+ * Creates an SDL3 or SDL2 window, a D3D9 device, clears the back buffer, and
  * presents. Exits after a configurable number of frames (default: 60).
  *
- * Compiled twice: the default build targets SDL2; defining D3D9_CLEAR_SDL3
- * targets SDL3 (and selects the matching DXVK_WSI_DRIVER).
+ * Compiled twice when both SDL versions are available: the default build
+ * targets SDL3; defining D3D9_CLEAR_SDL3 selects SDL3 (and the matching
+ * DXVK_WSI_DRIVER). The d3d9-clear-sdl2 target omits that define.
  */
 
 #include <cstdio>

@@ -38,12 +38,12 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 | SDL2 / SDL3 / GLFW WSI backends | Done (multi-monitor FS; GLFW borderless partial) |
 | MoltenVK loader (`libvulkan.dylib` / `libMoltenVK.dylib`) | Done (auto-discovers Homebrew prefixes + ICD manifest) |
 | Tiler GPU hints (`VK_DRIVER_ID_MOLTENVK`) | Done (upstream) |
-| Runtime smoke test / sample app | Done (`d3d9-clear` SDL2 + SDL3, CI smoke step) |
+| Runtime smoke test / sample app | Done (`d3d9-clear` SDL3 + SDL2 fallback, CI smoke step) |
 | Game compatibility matrix | Partial (`COMPATIBILITY.md` — profiles + reference ports; needs macOS testing) |
-| macOS EDID / HDR metadata | Partial (EDID read; HDR path uses it) |
+| macOS EDID / HDR metadata | Done (EDID read on macOS; colorimetry via GetCurrentOutputDesc) |
 | Native D3D9 cursor | Done (SDL2/SDL3/GLFW HW + software compositing) |
 | `isOccluded` for present throttling | Done (SDL2/SDL3/GLFW focus tracking) |
-| Window focus/resize → `NotifyWindowActivated` | Done (SDL/GLFW polling path) |
+| Window focus/resize → swapchain invalidation | Done (SDL/GLFW lifecycle polling + Win32 WM_SIZE) |
 | SDL2 fullscreen parity with SDL3 | Done |
 | `GetDeviceCaps` Vulkan-derived limits | Done (anisotropy, texture dims, MSAA honesty) |
 | Win32 compat shims (native handle objects) | Done (semaphores, events, `DuplicateHandle`, `WaitForSingleObject`; unit-tested) |
@@ -66,14 +66,17 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 - [x] SDL2 `enterFullscreenMode` now uses the mode saved by `setWindowMode` (parity with SDL3)
 - [x] GLFW `getDesktopDisplayMode` returns the largest available mode (native resolution)
 - [x] Universal binary (`lipo`) via `./package-native.sh … --arch universal`
-- [x] SDL/GLFW window focus polling → `NotifyWindowActivated` (device-loss-on-focus path)
+- [x] SDL/GLFW window lifecycle polling → focus + resize → swapchain extent invalidation
 - [x] `GetDeviceCaps` uses Vulkan-derived texture dims, anisotropy, and volume extent; removes false MSAA-toggle and wideLines-conditioned AA-lines cap
 - [x] MoltenVK format limits documented (`docs/MOLTENVK_CAPABILITIES.md`, README)
 - [x] Game compatibility matrix scaffold (`COMPATIBILITY.md`)
 - [x] Tiler mode performance notes in `dxvk.conf` and README
 - [x] WSI library sonames resolved from Meson/pkg-config (`wsi_sonames.h`)
 - [x] Multi-monitor fullscreen: D3D9 uses `getWindowMonitor`; GLFW/SDL3 WSI fixes (`d3d9_swapchain.cpp`, `wsi_window_glfw.cpp`, `wsi_window_sdl3.cpp`)
-- [x] Compatibility matrix: DXVK Native reference ports and upstream D3D9 port profiles (`COMPATIBILITY.md`)
+- [x] macOS-focused `dxvk.conf` platform profile (`tools/macos/macos.dxvk.conf`)
+- [x] SDL3 as recommended WSI backend (README, CI, smoke test defaults)
+- [x] Window lifecycle hooks: SDL/GLFW resize + focus → swapchain extent invalidation
+- [x] HDR colorimetry via EDID in `GetCurrentOutputDesc`
 
 ---
 
@@ -82,7 +85,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 ### Milestone A — Builds and presents a pixel
 
 - [x] CI installs MoltenVK and verifies Vulkan loader is present
-- [x] Minimal native sample: `d3d9-clear` (SDL2 clear + present)
+- [x] Minimal native sample: `d3d9-clear` (SDL3 primary, SDL2 fallback)
 - [x] GLFW `setWindowMode` height typo fix
 - [x] GLFW / SDL2 fullscreen targets the requested monitor (not always primary)
 - [x] GLFW `getWindowMonitor` uses window position / fullscreen monitor
@@ -177,10 +180,10 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 
 ## Medium Priority
 
-- **Window lifecycle**: hook SDL/GLFW resize and focus → swapchain extent invalidation (`d3d9_swapchain.cpp`, `d3d9_window.cpp`)
-- **HDR / colorimetry**: depends on EDID path (`d3d9_swapchain.cpp` consumer of `getMonitorEdid`)
-- **SDL3 as recommended backend**: SDL3 WSI has the most complete fullscreen implementation; align README/CI defaults when stable
-- **macOS `dxvk.conf` profile**: annotate MoltenVK-relevant keys; de-emphasize DXGI/D3D11 options
+- ~~**Window lifecycle**: hook SDL/GLFW resize and focus → swapchain extent invalidation (`d3d9_swapchain.cpp`, `d3d9_window.cpp`)~~
+- ~~**HDR / colorimetry**: depends on EDID path (`d3d9_swapchain.cpp` consumer of `getMonitorEdid`)~~
+- ~~**SDL3 as recommended backend**: SDL3 WSI has the most complete fullscreen implementation; align README/CI defaults when stable~~
+- ~~**macOS `dxvk.conf` profile**: annotate MoltenVK-relevant keys; de-emphasize DXGI/D3D11 options~~
 - ~~**Present stats / VBlank**~~: Done — `GetPresentStats` and `WaitForVBlank` return refresh-count based timing in `d3d9_swapchain.cpp`
 
 ---

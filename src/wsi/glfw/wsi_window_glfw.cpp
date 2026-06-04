@@ -318,6 +318,11 @@ namespace dxvk::wsi {
   }
 
 
+  void GlfwWsiDriver::processWindowEvents() {
+    glfwPollEvents();
+  }
+
+
   void GlfwWsiDriver::updateFullscreenWindow(
           HMONITOR hMonitor,
           HWND     hWindow,
