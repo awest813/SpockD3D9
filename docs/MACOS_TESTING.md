@@ -67,20 +67,23 @@ Use `--wipe` to force a clean reconfigure:
 ./scripts/build-pe-d3d9.sh --wipe
 ```
 
-## 3. Fallout 3 hosting workflow (manual)
+## 3. Fallout 3 boot-to-menu (hosted)
 
-Once the PE DLL builds, follow
-[tools/fallout3/README.md](../tools/fallout3/README.md):
+Automated helpers (after PE build):
 
-1. Copy `build-pe-d3d9/d3d9.dll` into the Wine prefix (next to `Fallout3.exe`
-   or into `system32`).
-2. Set `WINEDLLOVERRIDES="d3d9=n,b"`.
-3. Copy `tools/fallout3/fallout3.dxvk.conf` → `dxvk.conf` beside the game.
-4. Ensure MoltenVK is reachable from inside the prefix.
-5. Launch `Fallout3.exe` under your chosen host.
+```bash
+./scripts/build-pe-d3d9.sh
+./scripts/prepare-fallout3-host.sh --game-dir "/path/to/Fallout 3" --build
+./scripts/launch-fallout3-host.sh --game-dir "/path/to/Fallout 3"
+./scripts/check-boot-logs.sh "/path/to/Fallout 3/fallout3-spockd3d9.log"
+```
 
-Track progress against [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md) milestones
-(V1–V10).
+**Pass criteria for V3 (device):** log contains `D3D9: CreateDeviceEx OK`.
+**Pass criteria for V4 (menu):** main menu renders and accepts input — confirm
+visually; see [BOOT_TO_MENU.md](BOOT_TO_MENU.md).
+
+Manual steps (same outcome) are in [tools/fallout3/README.md](../tools/fallout3/README.md).
+Track milestones V1–V10 in [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md).
 
 ## 4. Capture benchmark results consistently
 

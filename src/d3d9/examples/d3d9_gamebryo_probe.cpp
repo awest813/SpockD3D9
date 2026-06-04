@@ -213,6 +213,8 @@ int main(int argc, char** argv) {
    || !checkFormat(d3d9, adapter, D3DFMT_DXT3, "DXT3")
    || !checkFormat(d3d9, adapter, D3DFMT_DXT5, "DXT5")
    || !checkFormat(d3d9, adapter, D3DFMT_A8R8G8B8, "A8R8G8B8")
+   || !checkFormat(d3d9, adapter, D3DFMT_R5G6B5, "R5G6B5")
+   || !checkFormat(d3d9, adapter, D3DFMT_A1R5G5B5, "A1R5G5B5")
    || !checkFormat(d3d9, adapter, D3DFMT_L8, "L8")
    || !checkDepthFormat(d3d9, adapter, D3DFMT_D24S8, "D24S8")
    || !checkDepthFormat(d3d9, adapter, D3DFMT_D16, "D16")) {
@@ -242,7 +244,7 @@ int main(int argc, char** argv) {
     adapter,
     D3DDEVTYPE_HAL,
     hwnd,
-    D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED,
+    D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED | D3DCREATE_FPU_PRESERVE,
     &presentParams,
     &device);
 

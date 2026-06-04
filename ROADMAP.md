@@ -158,7 +158,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
 | Benchmark profiles for Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf), [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf); CI-validated against documented options |
-| Boot-to-menu validation | Not started | First end-to-end milestone |
+| Boot-to-menu validation | **In progress** | Scripts: `prepare-fallout3-host.sh`, `launch-fallout3-host.sh`, `check-boot-logs.sh`; guide: [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md); retail run pending |
 | In-game rendering validation | Not started | Outdoor + interior + NPC + effects |
 | Save / load stability | Not started | Requires wrapper filesystem support |
 

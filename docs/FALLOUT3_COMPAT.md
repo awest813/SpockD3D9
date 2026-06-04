@@ -173,7 +173,7 @@ setup. Adjust the commented tuning keys based on test results.
 |-----------|-------------|--------|
 | **V1 — Library loads** | SpockD3D9 loads and `Direct3DCreate9` returns a valid object | **CI (native)** — `d3d9-gamebryo-probe` |
 | **V2 — Device created** | `CreateDevice` succeeds with Gamebryo's requested parameters | **CI (native)** — `d3d9-gamebryo-probe` |
-| **V3 — Boot to menu** | Fallout 3 main menu renders and is interactive | Not started |
+| **V3 — Boot to menu** | Fallout 3 main menu renders and is interactive | **In progress** — [BOOT_TO_MENU.md](BOOT_TO_MENU.md) + host scripts; retail confirmation pending |
 | **V4 — New game loads** | Character creation / Vault 101 intro renders | Not started |
 | **V5 — Outdoor rendering** | Capital Wasteland renders correctly (terrain, NPCs, sky) | Not started |
 | **V6 — Interior rendering** | Indoor environments (Vault, buildings) render correctly | Not started |

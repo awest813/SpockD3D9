@@ -424,6 +424,13 @@ namespace dxvk {
         return hr;
 
       *ppReturnedDeviceInterface = ref(device);
+
+      Logger::info(str::format(
+        "D3D9: CreateDeviceEx OK (",
+        pPresentationParameters->BackBufferWidth, "x", pPresentationParameters->BackBufferHeight,
+        ", windowed=", pPresentationParameters->Windowed ? "yes" : "no",
+        ", behavior=0x", std::hex, BehaviorFlags, std::dec,
+        ", backbuffers=", pPresentationParameters->BackBufferCount, ")"));
     }
     catch (const DxvkError& e) {
       Logger::err(e.message());
