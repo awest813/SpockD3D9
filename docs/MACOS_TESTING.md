@@ -35,6 +35,9 @@ export DXVK_WSI_DRIVER=SDL3
 
 **Pass criteria:** exit code 0, log ends with `d3d9-clear: OK`.
 
+The Gamebryo / Fallout 3-style device probe (`d3d9-gamebryo-probe`) runs the same
+way when built (SDL3 preferred). Pass criteria: log ends with `d3d9-gamebryo-probe: OK`.
+
 **Optional:** run with validation layers:
 
 ```bash

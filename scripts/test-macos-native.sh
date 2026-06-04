@@ -94,6 +94,7 @@ run_smoke() {
 
 run_smoke d3d9-clear
 run_smoke d3d9-clear-sdl2
+run_smoke d3d9-gamebryo-probe
 
 echo ""
 echo "Native macOS smoke test passed."

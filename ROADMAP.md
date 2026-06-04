@@ -46,7 +46,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 | Window focus/resize → swapchain invalidation | Done (SDL/GLFW lifecycle polling + Win32 WM_SIZE) |
 | SDL2 fullscreen parity with SDL3 | Done |
 | `GetDeviceCaps` Vulkan-derived limits | Done (anisotropy, texture dims, MSAA honesty) |
-| Win32 compat shims (native handle objects) | Done (semaphores, events, `DuplicateHandle`, `WaitForSingleObject`; unit-tested) |
+| Win32 compat shims (native handle objects) | Done (semaphores, events, `DuplicateHandle`, `WaitForSingleObject`, `WaitForMultipleObjects`; unit-tested) |
 
 ---
 
@@ -114,7 +114,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 
 ### Milestone E — Win32 compatibility shims
 
-Close gaps in `src/util/util_win32_compat.h` and related native shims needed for Windows game compatibility. The handle objects (semaphores, events, reference-counted duplication) are covered by a hermetic unit test (`tests/util/test_win32_compat.cpp`, run in CI under `.github/workflows/unit-tests.yml`, including a ThreadSanitizer pass).
+Close gaps in `src/util/util_win32_compat.h` and related native shims needed for Windows game compatibility. The handle objects (semaphores, events, reference-counted duplication, multi-object waits) are covered by a hermetic unit test (`tests/util/test_win32_compat.cpp`, run in CI under `.github/workflows/unit-tests.yml`, including a ThreadSanitizer pass).
 
 | Task | Status | Priority | Notes |
 |------|--------|----------|-------|
@@ -123,6 +123,7 @@ Close gaps in `src/util/util_win32_compat.h` and related native shims needed for
 | `CreateEventA` / `CreateEventW` | **Done** | High | Auto- and manual-reset events (mutex + condition variable) |
 | `SetEvent` / `ResetEvent` | **Done** | High | Signal / clear event state; auto-reset wakes one waiter, manual-reset wakes all |
 | `WaitForSingleObject` / `WaitForSingleObjectEx` | **Done** | High | Waits on semaphores and events with `INFINITE` or millisecond timeout |
+| `WaitForMultipleObjects` / `WaitForMultipleObjectsEx` | **Done** | Medium | Wait-any and wait-all on semaphores and events (Gamebryo threading); unit-tested |
 | `DuplicateHandle` | **Done** | Medium | Reference-counted handle sharing; honors `DUPLICATE_CLOSE_SOURCE` (D3D11 frame-latency waitable object) |
 | `CloseHandle` | **Done** | High | Drops a reference and frees the object at zero; dispatches on `NativeHandleKind` |
 | `ProcessIdToSessionId` | **Done** | Low | Returns TRUE, session 0 (no Win32 sessions on macOS) |
@@ -137,7 +138,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
 | Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu validation still blocked on host + game testing — see [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) |
 | Audit + polish Milestone F docs | **Done** | Audited status now aligned across [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md), [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md), and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
-| D3D9 device creation (Gamebryo) | Not started | Validate `Direct3DCreate9` → device → swapchain path |
+| D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` smoke test (formats, SM3 caps, CreateDevice, Present, Reset); retail boot-to-menu still pending |
 | Shader compilation (SM2/SM3 + fixed-function) | Not started | Gamebryo uses mixed paths; test DXSO → SPIR-V → MSL chain |
 | Texture format support (DXT1–5, depth) | Not started | Verify BCn + D24S8 on MoltenVK |
 | Fullscreen / resolution enumeration | Not started | `EnumAdapterModes` → `Reset` cycle |

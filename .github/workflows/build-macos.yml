@@ -122,6 +122,7 @@ jobs:
         # d3d9-clear-sdl2 is built only when both SDL versions are present.
         run_smoke d3d9-clear
         run_smoke d3d9-clear-sdl2
+        run_smoke d3d9-gamebryo-probe
 
     - name: Smoke test MoltenVK auto-discovery (clean env)
       run: |

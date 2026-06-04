@@ -10,9 +10,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # The native Win32 compatibility shims (src/util/util_win32_compat.h) emulate
-    # Windows handle objects on macOS/Linux. The unit test is hermetic — it needs
-    # only a C++ toolchain and the in-tree native Windows headers, no Vulkan/SDL.
+    # Native Win32 compatibility shims (util_win32_compat.h): semaphores, events,
+    # single/multi-object waits, DuplicateHandle. Hermetic — only needs g++ and
+    # the in-tree native Windows headers (no Vulkan/SDL).
     - name: Build and run
       run: |
         g++ -std=c++17 -O2 -Wall -Wextra -pthread \

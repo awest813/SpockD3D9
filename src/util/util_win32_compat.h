@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <atomic>
 #include <chrono>
+#include <algorithm>
+#include <vector>
 #include <mutex>
 #include <condition_variable>
 
@@ -286,6 +288,200 @@ inline DWORD WaitForSingleObjectEx(
 
 inline DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds) {
   return WaitForSingleObjectEx(hHandle, dwMilliseconds, FALSE);
+}
+
+// ---------------------------------------------------------------------------
+// WaitForMultipleObjects / WaitForMultipleObjectsEx
+//
+// Gamebryo and other D3D9 titles synchronize worker threads with multiple
+// kernel objects.  We support waits on semaphores and events only (the kinds
+// SpockD3D9 creates natively).  Handles are locked in pointer order to avoid
+// deadlocks when waiting on more than one object at a time.
+// ---------------------------------------------------------------------------
+
+#ifndef MAXIMUM_WAIT_OBJECTS
+#define MAXIMUM_WAIT_OBJECTS 64
+#endif
+
+namespace detail {
+
+inline bool nativeHandleReadyLocked(NativeHandleHeader* header) {
+  switch (header->kind) {
+    case NativeHandleKind::Semaphore:
+      return reinterpret_cast<NativeSemaphoreHandle*>(header)->count > 0;
+    case NativeHandleKind::Event:
+      return reinterpret_cast<NativeEventHandle*>(header)->signaled;
+    default:
+      return false;
+  }
+}
+
+inline bool acquireNativeHandleLocked(NativeHandleHeader* header) {
+  switch (header->kind) {
+    case NativeHandleKind::Semaphore: {
+      auto* s = reinterpret_cast<NativeSemaphoreHandle*>(header);
+      if (s->count <= 0)
+        return false;
+      s->count -= 1;
+      return true;
+    }
+
+    case NativeHandleKind::Event: {
+      auto* e = reinterpret_cast<NativeEventHandle*>(header);
+      if (!e->signaled)
+        return false;
+      if (!e->manualReset)
+        e->signaled = false;
+      return true;
+    }
+
+    default:
+      return false;
+  }
+}
+
+inline std::mutex* nativeHandleMutex(NativeHandleHeader* header) {
+  switch (header->kind) {
+    case NativeHandleKind::Semaphore:
+      return &reinterpret_cast<NativeSemaphoreHandle*>(header)->mtx;
+    case NativeHandleKind::Event:
+      return &reinterpret_cast<NativeEventHandle*>(header)->mtx;
+    default:
+      return nullptr;
+  }
+}
+
+inline void waitNativeHandleLocked(
+        NativeHandleHeader* header,
+        std::unique_lock<std::mutex>& lock,
+        const std::chrono::steady_clock::time_point& deadline) {
+  switch (header->kind) {
+    case NativeHandleKind::Semaphore: {
+      auto* s = reinterpret_cast<NativeSemaphoreHandle*>(header);
+      auto ready = [&] { return s->count > 0; };
+
+      if (deadline == std::chrono::steady_clock::time_point::max())
+        s->cv.wait(lock, ready);
+      else
+        s->cv.wait_until(lock, deadline, ready);
+      break;
+    }
+
+    case NativeHandleKind::Event: {
+      auto* e = reinterpret_cast<NativeEventHandle*>(header);
+      auto ready = [&] { return e->signaled; };
+
+      if (deadline == std::chrono::steady_clock::time_point::max())
+        e->cv.wait(lock, ready);
+      else
+        e->cv.wait_until(lock, deadline, ready);
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+} // namespace detail
+
+inline DWORD WaitForMultipleObjectsEx(
+        DWORD         nCount,
+        const HANDLE* lpHandles,
+        BOOL          bWaitAll,
+        DWORD         dwMilliseconds,
+        BOOL          /* bAlertable */) {
+  if (!lpHandles || nCount == 0 || nCount > MAXIMUM_WAIT_OBJECTS)
+    return WAIT_FAILED;
+
+  if (nCount == 1)
+    return WaitForSingleObjectEx(lpHandles[0], dwMilliseconds, FALSE);
+
+  std::vector<NativeHandleHeader*> headers(nCount);
+  for (DWORD i = 0; i < nCount; ++i) {
+    headers[i] = GetNativeHandleHeader(lpHandles[i]);
+    if (!headers[i])
+      return WAIT_FAILED;
+    if (headers[i]->kind != NativeHandleKind::Semaphore
+     && headers[i]->kind != NativeHandleKind::Event)
+      return WAIT_FAILED;
+  }
+
+  std::vector<DWORD> order(nCount);
+  for (DWORD i = 0; i < nCount; ++i)
+    order[i] = i;
+  std::sort(order.begin(), order.end(), [&](DWORD a, DWORD b) {
+    return headers[a] < headers[b];
+  });
+
+  const auto deadline = (dwMilliseconds == INFINITE)
+    ? std::chrono::steady_clock::time_point::max()
+    : std::chrono::steady_clock::now() + std::chrono::milliseconds(dwMilliseconds);
+
+  for (;;) {
+    if (bWaitAll) {
+      bool allReady = true;
+      for (DWORD i = 0; i < nCount; ++i) {
+        std::lock_guard<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
+        if (!detail::nativeHandleReadyLocked(headers[i])) {
+          allReady = false;
+          break;
+        }
+      }
+
+      if (allReady) {
+        std::vector<std::unique_lock<std::mutex>> locks;
+        locks.reserve(nCount);
+        for (DWORD idx : order)
+          locks.emplace_back(*detail::nativeHandleMutex(headers[idx]));
+
+        for (DWORD i = 0; i < nCount; ++i) {
+          if (!detail::acquireNativeHandleLocked(headers[i]))
+            return WAIT_FAILED;
+        }
+        return WAIT_OBJECT_0;
+      }
+
+      if (std::chrono::steady_clock::now() >= deadline)
+        return WAIT_TIMEOUT;
+
+      DWORD wakeOn = 0;
+      for (DWORD i = 0; i < nCount; ++i) {
+        std::lock_guard<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
+        if (!detail::nativeHandleReadyLocked(headers[i])) {
+          wakeOn = i;
+          break;
+        }
+      }
+
+      std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[wakeOn]));
+      detail::waitNativeHandleLocked(headers[wakeOn], lock, deadline);
+      continue;
+    }
+
+    for (DWORD i = 0; i < nCount; ++i) {
+      std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
+      if (detail::nativeHandleReadyLocked(headers[i])) {
+        if (!detail::acquireNativeHandleLocked(headers[i]))
+          return WAIT_FAILED;
+        return WAIT_OBJECT_0 + i;
+      }
+    }
+
+    if (std::chrono::steady_clock::now() >= deadline)
+      return WAIT_TIMEOUT;
+
+    std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[order[0]]));
+    detail::waitNativeHandleLocked(headers[order[0]], lock, deadline);
+  }
+}
+
+inline DWORD WaitForMultipleObjects(
+        DWORD         nCount,
+        const HANDLE* lpHandles,
+        BOOL          bWaitAll,
+        DWORD         dwMilliseconds) {
+  return WaitForMultipleObjectsEx(nCount, lpHandles, bWaitAll, dwMilliseconds, FALSE);
 }
 
 // ---------------------------------------------------------------------------
