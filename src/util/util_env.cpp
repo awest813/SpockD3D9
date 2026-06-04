@@ -159,8 +159,7 @@ namespace dxvk::env {
     if (const char* brewPrefix = std::getenv("HOMEBREW_PREFIX"))
       prefixes.emplace_back(brewPrefix);
 
-    prefixes.emplace_back("/opt/homebrew");
-    prefixes.emplace_back("/usr/local");
+    appendDefaultHomebrewPrefixes(prefixes);
 
     return prefixes;
   }

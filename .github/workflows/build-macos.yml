@@ -177,3 +177,50 @@ jobs:
         name: spockd3d9-macos-${{ matrix.arch }}-${{ env.VERSION_NAME }}
         path: build/spockd3d9-${{ env.VERSION_NAME }}/
         if-no-files-found: warn
+
+  build-universal:
+    runs-on: macos-14
+    name: macOS universal (arm64 + x86_64)
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Install dependencies
+      run: |
+        brew install meson ninja glslang sdl2 sdl3 molten-vk vulkan-loader vulkan-headers spirv-headers
+
+    - name: Get version
+      run: |
+        echo "VERSION_NAME=${GITHUB_REF##*/}-${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+    - name: Build universal D3D9 dylib
+      run: |
+        ./package-native.sh ${{ env.VERSION_NAME }} build \
+          --no-package --dev-build --arch universal
+
+    - name: Verify universal binary architectures
+      run: |
+        shopt -s globstar nullglob
+        for lib in build/spockd3d9-*/usr/lib/*.dylib; do
+          echo "$lib:"
+          file "$lib"
+          if ! file "$lib" | grep -q 'x86_64'; then
+            echo "::error::$lib is missing x86_64 slice"
+            exit 1
+          fi
+          if ! file "$lib" | grep -q 'arm64'; then
+            echo "::error::$lib is missing arm64 slice"
+            exit 1
+          fi
+        done
+
+    - name: Upload universal artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: spockd3d9-macos-universal-${{ env.VERSION_NAME }}
+        path: build/spockd3d9-${{ env.VERSION_NAME }}/
+        if-no-files-found: warn
