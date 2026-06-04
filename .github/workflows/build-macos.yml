@@ -178,9 +178,9 @@ jobs:
         path: build/spockd3d9-${{ env.VERSION_NAME }}/
         if-no-files-found: warn
 
-  build-universal:
+  build-pe-d3d9:
     runs-on: macos-14
-    name: macOS universal (arm64 + x86_64)
+    name: Experimental PE d3d9.dll (MinGW cross)
 
     steps:
     - name: Checkout code
@@ -191,36 +191,19 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install meson ninja glslang sdl2 sdl3 molten-vk vulkan-loader vulkan-headers spirv-headers
+        brew install meson ninja glslang mingw-w64
 
-    - name: Get version
+    - name: Cross-compile PE d3d9.dll
+      run: ./scripts/build-pe-d3d9.sh --wipe
+
+    - name: Verify PE output
       run: |
-        echo "VERSION_NAME=${GITHUB_REF##*/}-${GITHUB_SHA::8}" >> $GITHUB_ENV
+        test -f build-pe-d3d9/d3d9.dll
+        file build-pe-d3d9/d3d9.dll | tee /dev/stderr | grep -Eq 'PE32\+ executable \(DLL\)|PE32 executable \(DLL\)'
 
-    - name: Build universal D3D9 dylib
-      run: |
-        ./package-native.sh ${{ env.VERSION_NAME }} build \
-          --no-package --dev-build --arch universal
-
-    - name: Verify universal binary architectures
-      run: |
-        shopt -s globstar nullglob
-        for lib in build/spockd3d9-*/usr/lib/*.dylib; do
-          echo "$lib:"
-          file "$lib"
-          if ! file "$lib" | grep -q 'x86_64'; then
-            echo "::error::$lib is missing x86_64 slice"
-            exit 1
-          fi
-          if ! file "$lib" | grep -q 'arm64'; then
-            echo "::error::$lib is missing arm64 slice"
-            exit 1
-          fi
-        done
-
-    - name: Upload universal artifacts
+    - name: Upload PE artifact
       uses: actions/upload-artifact@v4
       with:
-        name: spockd3d9-macos-universal-${{ env.VERSION_NAME }}
-        path: build/spockd3d9-${{ env.VERSION_NAME }}/
-        if-no-files-found: warn
+        name: spockd3d9-pe-d3d9-${{ github.sha }}
+        path: build-pe-d3d9/d3d9.dll
+        if-no-files-found: error

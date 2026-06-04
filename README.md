@@ -83,6 +83,24 @@ ninja install
 
 The D3D9 shared library will be at `/your/install/dir/lib/libdxvk_d3d9.dylib`.
 
+### Experimental Windows PE `d3d9.dll` (optional)
+
+For hosting unmodified Windows D3D9 games through an external Wine / CrossOver /
+Game Porting Toolkit layer, SpockD3D9 can cross-compile an experimental
+`d3d9.dll` (not part of the blessed macOS native build):
+
+```bash
+brew install mingw-w64   # if not already installed
+./scripts/build-pe-d3d9.sh
+# Output: build-pe-d3d9/d3d9.dll
+```
+
+Use with a Windows host via `WINEDLLOVERRIDES="d3d9=n,b"`. See
+[docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) for the
+Fallout 3 hosting path, [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) for the
+full macOS validation checklist, and [ROADMAP.md](ROADMAP.md) Milestone F for
+validation status.
+
 ### Smoke test (`d3d9-clear`)
 
 After building, a minimal SDL3 sample is installed next to the library (`d3d9-clear-sdl2` is also built when both SDL3 and SDL2 are available). It creates a D3D9 device, clears the back buffer, and presents a few frames:
@@ -104,18 +122,31 @@ export DXVK_WSI_DRIVER=SDL3
 
 On success it prints `d3d9-clear: OK` and exits with code 0.
 
+For a one-command local validation pass (build + smoke test), use
+[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh). The full macOS
+testing checklist — native build, PE cross-compile, and Fallout 3 hosting — is
+in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).
+
 ### Cross-Architecture Build
 
-To build for a specific architecture on a universal Mac:
+CI builds each architecture on a native runner (`arm64` on Apple Silicon, `x86_64`
+on Intel). For local per-arch builds on a universal Mac:
+
 ```bash
 # Build for Apple Silicon
-CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" meson setup --buildtype release build.arm64
+CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" OBJCFLAGS="-arch arm64" OBJCXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
+  meson setup --buildtype release build.arm64
 ninja -C build.arm64
 
 # Build for Intel
-CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" meson setup --buildtype release build.x86_64
+CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" OBJCFLAGS="-arch x86_64" OBJCXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+  meson setup --buildtype release build.x86_64
 ninja -C build.x86_64
 ```
+
+An optional fat binary via `lipo` is available manually
+(`./package-native.sh … --arch universal`) but is not part of CI — cross-slicing
+Objective-C++ WSI sources on Apple Silicon remains fragile.
 
 ## Usage in Your Application
 

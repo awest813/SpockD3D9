@@ -12,6 +12,7 @@
 
 #include <array>
 #include <bitset>
+#include <cstddef>
 #include <optional>
 
 namespace dxvk {
@@ -185,8 +186,21 @@ namespace dxvk {
     D3DMATERIAL9 Material;
     float TweenFactor;
 
+    std::array<uint32_t, caps::TextureStageCount> WrapStage = { };
+    std::array<uint32_t, caps::TextureStageCount> WrapCoord = { };
+
     D3D9FFShaderKeyVSData Key;
   };
+
+  static_assert(sizeof(D3D9FFShaderKeyVSData) == 5u * sizeof(uint32_t));
+  static_assert(offsetof(D3D9FixedFunctionVS, WrapStage) ==
+                offsetof(D3D9FixedFunctionVS, TweenFactor) + sizeof(float));
+  static_assert(offsetof(D3D9FixedFunctionVS, WrapCoord) ==
+                offsetof(D3D9FixedFunctionVS, WrapStage) +
+                sizeof(std::array<uint32_t, caps::TextureStageCount>));
+  static_assert(offsetof(D3D9FixedFunctionVS, Key) ==
+                offsetof(D3D9FixedFunctionVS, WrapCoord) +
+                sizeof(std::array<uint32_t, caps::TextureStageCount>));
 
 
   struct D3D9FixedFunctionVertexBlendDataHW {

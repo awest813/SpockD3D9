@@ -38,16 +38,16 @@ project does not commit to it; see the decision record for why.
   * Apple [Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/)
   * [CrossOver](https://www.codeweavers.com/crossover)
   * vanilla [Wine](https://www.winehq.org/) built with `winevulkan`
-* A SpockD3D9 **PE `d3d9.dll`** for the host to load.
+* A SpockD3D9 **PE `d3d9.dll`** for the host to load (build with
+  [`scripts/build-pe-d3d9.sh`](../../scripts/build-pe-d3d9.sh); output:
+  `build-pe-d3d9/d3d9.dll`).
 
-> **Note — the PE build is experimental and the current prerequisite task.**
-> SpockD3D9's default build produces the native `libdxvk_d3d9.dylib`, which an
-> external host *cannot* load. A Windows-PE `d3d9.dll` (MinGW cross-compile),
-> wired up behind an **optional, non-default** Meson target, is required and is
-> the next active item in
-> [Milestone F](../../ROADMAP.md#milestone-f--fallout-3-compatibility). It is not
-> part of the default or "blessed" build. Until it lands, treat the steps below
-> as the intended workflow rather than a turnkey one.
+> **Note — the PE build is experimental and opt-in.** SpockD3D9's default build
+> produces the native `libdxvk_d3d9.dylib`, which an external host *cannot*
+> load. Cross-compile the Windows-PE `d3d9.dll` via
+> `./scripts/build-pe-d3d9.sh` (requires MinGW-w64). It is not part of the
+> default or "blessed" build. Boot-to-menu validation is still pending; treat
+> the steps below as the intended workflow rather than a turnkey one.
 
 ## Setup (intended workflow)
 

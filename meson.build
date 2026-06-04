@@ -66,6 +66,15 @@ dep_displayinfo = dependency(
   default_options: ['default_library=static'],
 )
 
+if get_option('enable_pe_d3d9')
+  if platform != 'windows'
+    error('enable_pe_d3d9 requires cross-compiling to Windows. Use scripts/build-pe-d3d9.sh or pass --cross-file cross/pe-x86_64-w64-mingw32.txt.')
+  endif
+  if not get_option('enable_d3d9')
+    error('enable_pe_d3d9 requires enable_d3d9=true.')
+  endif
+endif
+
 if platform == 'windows'
   dxvk_so_version = {'name_prefix': ''}
 
@@ -195,6 +204,10 @@ dxvk_include_path = include_directories(dxvk_include_dirs)
 
 add_project_arguments(cpp.get_supported_arguments(compiler_args), language: 'cpp')
 add_project_arguments(cc.get_supported_arguments(compiler_args), language: 'c')
+if platform == 'darwin'
+  objcpp = meson.get_compiler('objcpp')
+  add_project_arguments(objcpp.get_supported_arguments(compiler_args), language: 'objcpp')
+endif
 add_project_link_arguments(cpp.get_supported_link_arguments(link_args), language: 'cpp')
 add_project_link_arguments(cc.get_supported_link_arguments(link_args), language: 'c')
 
@@ -241,3 +254,7 @@ if platform != 'windows'
 endif
 
 subdir('src')
+
+if get_option('enable_pe_d3d9')
+  summary('Experimental PE d3d9.dll', 'enabled (MinGW cross-build)', section: 'Experimental')
+endif

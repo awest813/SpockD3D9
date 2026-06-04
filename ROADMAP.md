@@ -65,7 +65,7 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 - [x] `isOccluded` implemented for SDL2, SDL3, and GLFW (focus-loss with 100 ms hysteresis)
 - [x] SDL2 `enterFullscreenMode` now uses the mode saved by `setWindowMode` (parity with SDL3)
 - [x] GLFW `getDesktopDisplayMode` returns the largest available mode (native resolution)
-- [x] Universal binary (`lipo`) via `./package-native.sh … --arch universal`
+- [x] Universal binary (`lipo`) via `./package-native.sh … --arch universal` — optional/manual only; CI uses per-arch native runners instead
 - [x] SDL/GLFW window lifecycle polling → focus + resize → swapchain extent invalidation
 - [x] `GetDeviceCaps` uses Vulkan-derived texture dims, anisotropy, and volume extent; removes false MSAA-toggle and wideLines-conditioned AA-lines cap
 - [x] MoltenVK format limits documented (`docs/MOLTENVK_CAPABILITIES.md`, README)
@@ -135,7 +135,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Task | Status | Notes |
 |------|--------|-------|
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
-| Emit SpockD3D9 as an experimental PE `d3d9.dll` | Not started | MinGW cross-compile behind an **optional, non-default** Meson target (not part of the blessed build); the immediate prerequisite created by the execution-model decision |
+| Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu validation still blocked on host + game testing — see [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) |
 | D3D9 device creation (Gamebryo) | Not started | Validate `Direct3DCreate9` → device → swapchain path |
 | Shader compilation (SM2/SM3 + fixed-function) | Not started | Gamebryo uses mixed paths; test DXSO → SPIR-V → MSL chain |
 | Texture format support (DXT1–5, depth) | Not started | Verify BCn + D24S8 on MoltenVK |
@@ -191,7 +191,8 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 ## Low Priority
 
 - Patch APIs (`DrawRectPatch`, `DrawTriPatch`) — rare in D3D9 titles (`d3d9_device.cpp`)
-- Unimplemented render states (wrap, tessellation) — `d3d9_device.cpp`
+- ~~**D3DRS_WRAP0–15** (fixed-function texture coordinate wrapping)~~ — Done — `d3d9_fixed_function_vert.vert`, `d3d9_device.cpp`
+- Unimplemented render states (tessellation) — `d3d9_device.cpp`
 - Fixed-function SM3 edge cases — `d3d9_fixed_function_vert.vert`
 - Optional D3D8 build (`-Denable_d3d8=true`) for legacy titles
 - Palette / indexed texture paths — `d3d9_device.cpp`
