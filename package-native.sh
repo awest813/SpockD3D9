@@ -78,7 +78,10 @@ function build_arch_to {
     strip_flag=--strip
   fi
 
-  CC="$CC" CXX="$CXX" CFLAGS="-arch $arch" CXXFLAGS="-arch $arch" \
+  CC="$CC" CXX="$CXX" \
+  CFLAGS="-arch $arch" CXXFLAGS="-arch $arch" \
+  OBJCFLAGS="-arch $arch" OBJCXXFLAGS="-arch $arch" \
+  LDFLAGS="-arch $arch" \
     meson setup \
         --buildtype "release"                \
         --prefix "$prefix"                   \

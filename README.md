@@ -132,11 +132,13 @@ in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).
 To build for a specific architecture on a universal Mac:
 ```bash
 # Build for Apple Silicon
-CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" meson setup --buildtype release build.arm64
+CFLAGS="-arch arm64" CXXFLAGS="-arch arm64" OBJCFLAGS="-arch arm64" OBJCXXFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
+  meson setup --buildtype release build.arm64
 ninja -C build.arm64
 
 # Build for Intel
-CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" meson setup --buildtype release build.x86_64
+CFLAGS="-arch x86_64" CXXFLAGS="-arch x86_64" OBJCFLAGS="-arch x86_64" OBJCXXFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+  meson setup --buildtype release build.x86_64
 ninja -C build.x86_64
 ```
 

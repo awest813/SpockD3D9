@@ -204,6 +204,10 @@ dxvk_include_path = include_directories(dxvk_include_dirs)
 
 add_project_arguments(cpp.get_supported_arguments(compiler_args), language: 'cpp')
 add_project_arguments(cc.get_supported_arguments(compiler_args), language: 'c')
+if platform == 'darwin'
+  objcpp = meson.get_compiler('objcpp')
+  add_project_arguments(objcpp.get_supported_arguments(compiler_args), language: 'objcpp')
+endif
 add_project_link_arguments(cpp.get_supported_link_arguments(link_args), language: 'cpp')
 add_project_link_arguments(cc.get_supported_link_arguments(link_args), language: 'c')
 
