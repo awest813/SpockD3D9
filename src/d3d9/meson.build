@@ -127,4 +127,21 @@ if platform != 'windows'
       install             : true,
     )
   endif
+
+  if lib_sdl3.found()
+    executable('d3d9-gamebryo-probe',
+      'examples/d3d9_gamebryo_probe.cpp',
+      cpp_args            : [ '-DD3D9_CLEAR_SDL3' ],
+      dependencies        : [ d3d9_dep, lib_sdl3 ],
+      include_directories : dxvk_include_path,
+      install             : true,
+    )
+  elif lib_sdl2.found()
+    executable('d3d9-gamebryo-probe',
+      'examples/d3d9_gamebryo_probe.cpp',
+      dependencies        : [ d3d9_dep, lib_sdl2 ],
+      include_directories : dxvk_include_path,
+      install             : true,
+    )
+  endif
 endif

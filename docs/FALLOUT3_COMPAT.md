@@ -47,8 +47,11 @@ still pending.
 - **Build/packaging scaffolding:** Done for the optional PE path (`enable_pe_d3d9`
   Meson option, cross file, helper script, CI coverage) and for native profile
   validation (`tests/conf/test_dxvk_conf_profiles.py`).
-- **Runtime game milestones:** Still unverified on real host/game runs. Treat
-  the V1-V10 table below as the active tracker for manual progression.
+- **Native CI probe:** `d3d9-gamebryo-probe` (built with the native dylib) exercises
+  Gamebryo-typical `CreateDevice` parameters, BCn/D24S8 format queries, SM3 caps,
+  Present, and `Reset` on macOS CI. This covers V1–V2 on the native path only.
+- **Runtime game milestones:** Retail boot-to-menu (V3+) still unverified on real
+  host/game runs. Treat the V1–V10 table below as the active tracker for manual progression.
 - **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
   validation flow and [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md)
   when reporting benchmark outcomes.
@@ -168,8 +171,8 @@ setup. Adjust the commented tuning keys based on test results.
 
 | Milestone | Description | Status |
 |-----------|-------------|--------|
-| **V1 — Library loads** | SpockD3D9 loads and `Direct3DCreate9` returns a valid object | Not started |
-| **V2 — Device created** | `CreateDevice` succeeds with Gamebryo's requested parameters | Not started |
+| **V1 — Library loads** | SpockD3D9 loads and `Direct3DCreate9` returns a valid object | **CI (native)** — `d3d9-gamebryo-probe` |
+| **V2 — Device created** | `CreateDevice` succeeds with Gamebryo's requested parameters | **CI (native)** — `d3d9-gamebryo-probe` |
 | **V3 — Boot to menu** | Fallout 3 main menu renders and is interactive | Not started |
 | **V4 — New game loads** | Character creation / Vault 101 intro renders | Not started |
 | **V5 — Outdoor rendering** | Capital Wasteland renders correctly (terrain, NPCs, sky) | Not started |

@@ -940,6 +940,14 @@ namespace dxvk {
     { R"(\\SWTFU\.exe$)", {{
       { "d3d9.deviceLossOnFocusLoss",       "True" },
     }} },
+    /* Fallout 3 (Gamebryo) - primary Windows D3D9 compatibility target */
+    { R"(\\Fallout 3.*\\Fallout3\.exe$)", {{
+      { "dxvk.enableShaderCache",           "True" },
+      { "d3d9.shaderModel",                 "3" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",             "1" },
+      { "d3d9.deviceLossOnFocusLoss",       "False" },
+    }} },
     /* Fallout New Vegas - Various visual issues  *
      * in mod New Vegas Reloaded. Nvidia path in  *
      * same mod use NvAPI_D3D9_StretchRectEx for  *

@@ -2,9 +2,9 @@
 // src/util/util_win32_compat.h (Milestone E).
 //
 // These cover the handle objects SpockD3D9 emulates on macOS/Linux:
-// semaphores, events (auto- and manual-reset), WaitForSingleObject(Ex)
-// timeouts, DuplicateHandle reference sharing, CloseHandle teardown, and
-// minimal GDI memory-DC lifecycle shims.
+// semaphores, events (auto- and manual-reset), WaitForSingleObject(Ex),
+// WaitForMultipleObjects(Ex), timeouts, DuplicateHandle reference sharing,
+// CloseHandle teardown, and minimal GDI memory-DC lifecycle shims.
 //
 // The test is intentionally hermetic: it includes the real shim header and
 // stubs the single Logger symbol the header references, so it builds with a
@@ -159,6 +159,61 @@ static void test_gdi_dc_lifecycle() {
   CHECK(DeleteDC(dc) == TRUE);
 }
 
+static void test_wait_multiple_any() {
+  HANDLE e0 = CreateEventA(nullptr, TRUE, FALSE, nullptr);
+  HANDLE e1 = CreateEventA(nullptr, TRUE, FALSE, nullptr);
+  const HANDLE handles[] = { e0, e1 };
+
+  CHECK(WaitForMultipleObjects(2, handles, FALSE, 0) == WAIT_TIMEOUT);
+
+  CHECK(SetEvent(e1) == TRUE);
+  CHECK(WaitForMultipleObjects(2, handles, FALSE, 0) == WAIT_OBJECT_0 + 1);
+
+  CHECK(SetEvent(e0) == TRUE);
+  CHECK(WaitForMultipleObjects(2, handles, FALSE, 0) == WAIT_OBJECT_0);
+
+  CHECK(CloseHandle(e0) == TRUE);
+  CHECK(CloseHandle(e1) == TRUE);
+}
+
+static void test_wait_multiple_all() {
+  HANDLE s0 = CreateSemaphoreA(nullptr, 1, 1, nullptr);
+  HANDLE s1 = CreateSemaphoreA(nullptr, 1, 1, nullptr);
+  const HANDLE handles[] = { s0, s1 };
+
+  CHECK(WaitForMultipleObjects(2, handles, TRUE, 0) == WAIT_OBJECT_0);
+  CHECK(WaitForSingleObject(s0, 0) == WAIT_TIMEOUT);
+  CHECK(WaitForSingleObject(s1, 0) == WAIT_TIMEOUT);
+
+  CHECK(ReleaseSemaphore(s0, 1, nullptr) == TRUE);
+  CHECK(ReleaseSemaphore(s1, 1, nullptr) == TRUE);
+  CHECK(WaitForMultipleObjects(2, handles, TRUE, 0) == WAIT_OBJECT_0);
+
+  CHECK(CloseHandle(s0) == TRUE);
+  CHECK(CloseHandle(s1) == TRUE);
+}
+
+static void test_wait_multiple_blocking() {
+  HANDLE e0 = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+  HANDLE e1 = CreateEventA(nullptr, FALSE, FALSE, nullptr);
+  const HANDLE handles[] = { e0, e1 };
+  std::atomic<bool> woke{false};
+
+  std::thread waiter([&] {
+    CHECK(WaitForMultipleObjects(2, handles, FALSE, INFINITE) == WAIT_OBJECT_0 + 1);
+    woke = true;
+  });
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(30));
+  CHECK(!woke.load());
+  CHECK(SetEvent(e1) == TRUE);
+  waiter.join();
+  CHECK(woke.load());
+
+  CHECK(CloseHandle(e0) == TRUE);
+  CHECK(CloseHandle(e1) == TRUE);
+}
+
 static void test_invalid_inputs() {
   CHECK(SetEvent(nullptr) == FALSE);
   CHECK(ResetEvent(INVALID_HANDLE_VALUE) == FALSE);
@@ -170,6 +225,10 @@ static void test_invalid_inputs() {
   HANDLE target = reinterpret_cast<HANDLE>(0x1);
   CHECK(DuplicateHandle(nullptr, nullptr, nullptr, &target, 0, FALSE, 0) == FALSE);
   CHECK(target == nullptr); // cleared on failure
+
+  HANDLE handles[] = { nullptr };
+  CHECK(WaitForMultipleObjects(1, handles, FALSE, 0) == WAIT_FAILED);
+  CHECK(WaitForMultipleObjects(0, handles, FALSE, 0) == WAIT_FAILED);
 }
 
 int main() {
@@ -179,6 +238,9 @@ int main() {
   test_manual_reset_event();
   test_duplicate_handle();
   test_gdi_dc_lifecycle();
+  test_wait_multiple_any();
+  test_wait_multiple_all();
+  test_wait_multiple_blocking();
   test_invalid_inputs();
 
   if (g_failures == 0) {
