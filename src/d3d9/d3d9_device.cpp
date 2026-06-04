@@ -191,6 +191,7 @@ namespace dxvk {
     m_dirty.set(D3D9DeviceDirtyFlag::FFPixelShader);
     m_dirty.set(D3D9DeviceDirtyFlag::FFViewport);
     m_dirty.set(D3D9DeviceDirtyFlag::FFPixelData);
+    m_dirty.set(D3D9DeviceDirtyFlag::FFGlobalSpecular);
     m_dirty.set(D3D9DeviceDirtyFlag::SharedPixelShaderData);
     m_dirty.set(D3D9DeviceDirtyFlag::DepthBounds);
     m_dirty.set(D3D9DeviceDirtyFlag::PointScale);
@@ -1671,6 +1672,7 @@ namespace dxvk {
       0);
   }
 
+
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetRenderTarget(
           DWORD              RenderTargetIndex,
           IDirect3DSurface9* pRenderTarget) {
@@ -2511,8 +2513,7 @@ namespace dxvk {
           break;
 
         case D3DRS_SPECULARENABLE:
-          m_dirty.set(D3D9DeviceDirtyFlag::FFPixelShader);
-          m_dirty.set(D3D9DeviceDirtyFlag::FFVertexShader);
+          m_dirty.set(D3D9DeviceDirtyFlag::FFGlobalSpecular);
           break;
 
         case D3DRS_FOGENABLE:
@@ -2883,6 +2884,7 @@ namespace dxvk {
     return D3D_OK;
   }
 
+
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetTextureStageState(
           DWORD                    Stage,
           D3DTEXTURESTAGESTATETYPE Type,
@@ -3125,6 +3127,7 @@ namespace dxvk {
 
     return D3D_OK;
   }
+
 
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::DrawIndexedPrimitive(
           D3DPRIMITIVETYPE PrimitiveType,
@@ -3995,7 +3998,6 @@ namespace dxvk {
       UpdateTextureTypeMismatchesForShader(newShader, newShaderMasks.samplerMask, 0);
 
       bool dirty = m_specInfo.set<D3D9SpecConstantId::SpecFFLastActiveTextureStage>(0u);
-      dirty |= m_specInfo.set<D3D9SpecConstantId::SpecFFGlobalSpecularEnabled>(0u);
       constexpr uint32_t perTextureStageSpecConsts = static_cast<uint32_t>(D3D9SpecConstantId::SpecFFTextureStage1ColorOp) - static_cast<uint32_t>(D3D9SpecConstantId::SpecFFTextureStage0ColorOp);
       for (uint32_t i = 0; i < caps::TextureStageCount; i++) {
         dirty |= m_specInfo.set(static_cast<D3D9SpecConstantId>(D3D9SpecConstantId::SpecFFTextureStage0ColorOp + perTextureStageSpecConsts * i), 0u);
@@ -5508,6 +5510,7 @@ namespace dxvk {
     ConsiderFlush(GpuFlushType::ImplicitWeakHint);
   }
 
+
   void D3D9DeviceEx::EmitGenerateMips(
     D3D9CommonTexture* pResource) {
     if (pResource->IsManaged())
@@ -5733,7 +5736,6 @@ namespace dxvk {
 
     return D3D_OK;
   }
-
 
 
   void D3D9DeviceEx::UploadPerDrawData(
@@ -6950,6 +6952,16 @@ namespace dxvk {
   }
 
 
+  void D3D9DeviceEx::UpdateGlobalSpecular() {
+    m_dirty.clr(D3D9DeviceDirtyFlag::FFGlobalSpecular);
+
+    bool specularEnabled = m_state.renderStates[D3DRS_SPECULARENABLE];
+
+    if (m_specInfo.set<D3D9SpecConstantId::SpecFFGlobalSpecularEnabled>(specularEnabled))
+      m_dirty.set(D3D9DeviceDirtyFlag::SpecializationEntries);
+  }
+
+
   void D3D9DeviceEx::BindFramebuffer() {
     m_dirty.clr(D3D9DeviceDirtyFlag::Framebuffer);
 
@@ -7714,6 +7726,9 @@ namespace dxvk {
 
     UpdatePointMode(PrimitiveType == D3DPT_POINTLIST);
 
+    if (unlikely(m_dirty.test(D3D9DeviceDirtyFlag::FFGlobalSpecular)))
+      UpdateGlobalSpecular();
+
     if (likely(UseProgrammableVS())) {
       UploadConstants<D3D9ShaderType::VertexShader>();
 
@@ -8059,6 +8074,7 @@ namespace dxvk {
     });
   }
 
+
   void D3D9DeviceEx::BindIndices() {
     D3D9CommonBuffer* buffer = GetCommonBuffer(m_state.indices);
 
@@ -8393,8 +8409,6 @@ namespace dxvk {
     key.Data.Contents.SpecularSource   = m_state.renderStates[D3DRS_SPECULARMATERIALSOURCE] & mask;
     key.Data.Contents.EmissiveSource   = m_state.renderStates[D3DRS_EMISSIVEMATERIALSOURCE] & mask;
 
-    key.Data.Contents.SpecularEnabled  = m_state.renderStates[D3DRS_SPECULARENABLE];
-
     uint32_t lightCount = 0;
 
     if (key.Data.Contents.UseLighting) {
@@ -8434,7 +8448,7 @@ namespace dxvk {
   }
 
 
-   void D3D9DeviceEx::UpdateFixedFunctionVS() {
+  void D3D9DeviceEx::UpdateFixedFunctionVS() {
     bool hasPositionT    = m_state.vertexDecl != nullptr && m_state.vertexDecl->TestFlag(D3D9VertexDeclFlag::HasPositionT);
     bool hasBlendWeight  = m_state.vertexDecl != nullptr && m_state.vertexDecl->TestFlag(D3D9VertexDeclFlag::HasBlendWeight);
     bool hasBlendIndices = m_state.vertexDecl != nullptr && m_state.vertexDecl->TestFlag(D3D9VertexDeclFlag::HasBlendIndices);
@@ -8614,8 +8628,6 @@ namespace dxvk {
       stage0.AlphaArg1 = D3DTA_DIFFUSE;
     }
 
-    stage0.GlobalSpecularEnable = m_state.renderStates[D3DRS_SPECULARENABLE];
-
     // The last stage *always* writes to current.
     if (activeTextureStageCount >= 1)
       key.Stages[activeTextureStageCount - 1].Contents.ResultIsTemp = false;
@@ -8650,7 +8662,6 @@ namespace dxvk {
 
       uint32_t lastActiveTextureStage = std::max(activeTextureStageCount, 1u) - 1u; // Subtract 1 to make it fit 3 bits
       bool dirty = m_specInfo.set<D3D9SpecConstantId::SpecFFLastActiveTextureStage>(lastActiveTextureStage);
-      dirty |= m_specInfo.set<D3D9SpecConstantId::SpecFFGlobalSpecularEnabled>(m_state.renderStates[D3DRS_SPECULARENABLE]);
       constexpr uint32_t perTextureStageSpecConsts = static_cast<uint32_t>(D3D9SpecConstantId::SpecFFTextureStage1ColorOp) - static_cast<uint32_t>(D3D9SpecConstantId::SpecFFTextureStage0ColorOp);
       for (uint32_t i = 0; i < caps::TextureStageCount; i++) {
         if (i <= activeTextureStageCount) {
@@ -9191,11 +9202,13 @@ namespace dxvk {
     return D3D_OK;
   }
 
+
   void D3D9DeviceEx::TrackBufferMappingBufferSequenceNumber(
         D3D9CommonBuffer* pResource) {
     uint64_t sequenceNumber = GetCurrentSequenceNumber();
     pResource->TrackMappingBufferSequenceNumber(sequenceNumber);
   }
+
 
   void D3D9DeviceEx::TrackTextureMappingBufferSequenceNumber(
       D3D9CommonTexture* pResource,
@@ -9203,6 +9216,7 @@ namespace dxvk {
     uint64_t sequenceNumber = GetCurrentSequenceNumber();
     pResource->TrackMappingBufferSequenceNumber(Subresource, sequenceNumber);
   }
+
 
   uint64_t D3D9DeviceEx::GetCurrentSequenceNumber() {
     // We do not flush empty chunks, so if we are tracking a resource
@@ -9225,6 +9239,7 @@ namespace dxvk {
     return ptr;
   }
 
+
   void D3D9DeviceEx::TouchMappedTexture(D3D9CommonTexture* pTexture) {
 #ifdef D3D9_ALLOW_UNMAPPING
     if (pTexture->GetMapMode() != D3D9_COMMON_TEXTURE_MAP_MODE_UNMAPPABLE)
@@ -9235,6 +9250,7 @@ namespace dxvk {
 #endif
   }
 
+
   void D3D9DeviceEx::RemoveMappedTexture(D3D9CommonTexture* pTexture) {
 #ifdef D3D9_ALLOW_UNMAPPING
     if (pTexture->GetMapMode() != D3D9_COMMON_TEXTURE_MAP_MODE_UNMAPPABLE)
@@ -9244,6 +9260,7 @@ namespace dxvk {
     m_mappedTextures.remove(pTexture);
 #endif
   }
+
 
   void D3D9DeviceEx::UnmapTextures() {
     // Will only be called inside the device lock
@@ -9288,6 +9305,7 @@ namespace dxvk {
       }
     }
   }
+
 
   void D3D9DeviceEx::NotifyWindowActivated(HWND window, bool activated) {
     D3D9DeviceLock lock = LockDevice();
@@ -9395,6 +9413,7 @@ namespace dxvk {
       return GpuFlushType::ImplicitWeakHint;
   }
 
+
   bool D3D9DeviceEx::ValidateSharedTexture(
     HANDLE                          handle,
     D3DRESOURCETYPE                 type,
@@ -9482,6 +9501,7 @@ namespace dxvk {
     return true;
   }
 
+
   bool D3D9DeviceEx::ValidateSharedBuffer(
       HANDLE                        handle,
       const dxvk::D3D9_BUFFER_DESC& bufferDesc) const {
@@ -9553,4 +9573,5 @@ namespace dxvk {
     /* ignore failures for legacy Proton implementation */
     return true;
   }
+
 }
