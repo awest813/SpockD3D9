@@ -39,6 +39,20 @@ title profile live in [`tools/fallout3/`](../tools/fallout3/).
 experimental Windows `d3d9.dll` for external hosts. Boot-to-menu validation is
 still pending.
 
+## Current audited status (2026-06-04)
+
+- **Execution model:** Done (native-first translator + optional PE `d3d9.dll`;
+  external hosts provide non-D3D9 Win32 services). See
+  [FALLOUT3_EXECUTION_MODEL.md](FALLOUT3_EXECUTION_MODEL.md).
+- **Build/packaging scaffolding:** Done for the optional PE path (`enable_pe_d3d9`
+  Meson option, cross file, helper script, CI coverage) and for native profile
+  validation (`tests/conf/test_dxvk_conf_profiles.py`).
+- **Runtime game milestones:** Still unverified on real host/game runs. Treat
+  the V1-V10 table below as the active tracker for manual progression.
+- **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
+  validation flow and [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md)
+  when reporting benchmark outcomes.
+
 ---
 
 ## D3D9 subsystem checklist
