@@ -27,6 +27,19 @@ The overarching goal is **full compatibility with Windows D3D9 games on macOS**.
 └─────────────┘
 ```
 
+### Graphics tracks (MoltenVK now, Metal later)
+
+SpockD3D9 follows two planned graphics paths on macOS:
+
+| Track | Stack | Status |
+|-------|--------|--------|
+| **A — MoltenVK (default)** | D3D9 → Vulkan → MoltenVK → Metal | Active — all milestones below |
+| **B — Direct Metal (future)** | D3D9 → MSL → Metal (no Vulkan) | Planned — see [docs/DX9_METAL_ROADMAP.md](docs/DX9_METAL_ROADMAP.md) |
+
+Track A ships retail compatibility first (Milestone F, MoltenVK tuning). Track B is a separate multi-phase program (RHI extraction, Metal WSI, SPIRV-Cross or native MSL, draw-path parity). **Do not start Track B backend work until Track A reaches in-game validation on at least one benchmark title** (decision gate G0 in the Metal roadmap).
+
+Near-term MoltenVK priorities that benefit Track A without blocking Track B are listed in [docs/DX9_METAL_ROADMAP.md § Near-term MoltenVK work](docs/DX9_METAL_ROADMAP.md#near-term-moltenvk-work-track-a-enhancements).
+
 ## Status Overview
 
 | Area | Status |
@@ -136,7 +149,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Task | Status | Notes |
 |------|--------|-------|
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
-| Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu validation still blocked on host + game testing — see [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md) |
+| Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu workflow in [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md) — retail V4 pending |
 | Audit + polish Milestone F docs | **Done** | Audited status now aligned across [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md), [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md), and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` smoke test (formats, SM3 caps, CreateDevice, Present, Reset); retail boot-to-menu still pending |
 | Shader compilation (SM2/SM3 + fixed-function) | **Partial (CI)** | `d3d9-gamebryo-probe` exercises FF `DrawPrimitiveUP` → SPIR-V → MSL; DXSO SM2/SM3 on retail shaders still pending |
@@ -145,7 +158,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
 | Benchmark profiles for Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf), [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf); CI-validated against documented options |
-| Boot-to-menu validation | Not started | First end-to-end milestone |
+| Boot-to-menu validation | **In progress** | Scripts: `prepare-fallout3-host.sh`, `launch-fallout3-host.sh`, `check-boot-logs.sh`; guide: [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md); retail run pending |
 | In-game rendering validation | Not started | Outdoor + interior + NPC + effects |
 | Save / load stability | Not started | Requires wrapper filesystem support |
 
@@ -205,7 +218,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 
 - D3D9On12 (`d3d9_on_12.cpp` stubs)
 - DXGI / D3D10 / D3D11 (source retained; disabled via meson options)
-- Direct Metal translation (see [dxmt](https://github.com/3Shain/dxmt))
+- **Direct Metal backend in default builds** — not implemented yet; long-term plan in [docs/DX9_METAL_ROADMAP.md](docs/DX9_METAL_ROADMAP.md) (reference: [dxmt](https://github.com/3Shain/dxmt) for D3D10/11)
 - Non-D3D9 game APIs (DirectSound, DirectInput, XInput — needed for full game compatibility but outside SpockD3D9's responsibility; a wrapper layer must provide these)
 
 ---

@@ -206,8 +206,8 @@ See `dxvk.conf` for full option documentation, including macOS-specific notes on
 ## Relationship to Other Projects
 
 - **[DXVK](https://github.com/doitsujin/dxvk)**: The upstream project. SpockD3D9 is a focused fork retaining only D3D9 support and targeting macOS natively.
-- **[dxmt](https://github.com/3Shain/dxmt)**: A separate project that translates D3D11/D3D10 directly to Metal (no Vulkan intermediate). SpockD3D9 takes architectural inspiration from dxmt's macOS build patterns but uses a different approach (Vulkan via MoltenVK) and targets a different API (D3D9).
-- **[MoltenVK](https://github.com/KhronosGroup/MoltenVK)**: The Vulkan-to-Metal translation layer that SpockD3D9 depends on (Track A — see [docs/TRACK_A.md](docs/TRACK_A.md)).
+- **[dxmt](https://github.com/3Shain/dxmt)**: A separate project that translates D3D11/D3D10 directly to Metal (no Vulkan intermediate). SpockD3D9 takes architectural inspiration from dxmt's macOS build patterns but uses a different approach (Vulkan via MoltenVK) and targets a different API (D3D9). A future **D3D9 → Metal** path (bypassing MoltenVK) is outlined in [docs/DX9_METAL_ROADMAP.md](docs/DX9_METAL_ROADMAP.md).
+- **[MoltenVK](https://github.com/KhronosGroup/MoltenVK)**: The Vulkan-to-Metal translation layer SpockD3D9 uses today (Track A — [docs/TRACK_A.md](docs/TRACK_A.md); long-term Track B in the [Metal roadmap](docs/DX9_METAL_ROADMAP.md)).
 
 ## Known Limitations
 

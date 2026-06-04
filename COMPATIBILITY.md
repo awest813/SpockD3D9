@@ -33,7 +33,7 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Boot / device creation | **Blocked** | Execution model decided (native-first + optional opt-in PE `d3d9.dll`, host delegated); blocked on the experimental PE `d3d9.dll` build that an external host can load |
+| Boot / device creation | **In progress** | PE `d3d9.dll` via `scripts/build-pe-d3d9.sh`; boot workflow in [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md); retail V4 (menu) not yet confirmed |
 | Rendering (fixed-function + SM3) | **Untested** | Gamebryo uses mixed fixed-function and shader paths |
 | Fullscreen / resolution switching | **Untested** | Expects `Reset` / mode enumeration; SpockD3D9 supports this via WSI |
 | Input (keyboard / mouse / gamepad) | **Blocked** | Windows binary uses DirectInput / Win32 messages |
