@@ -80,9 +80,16 @@ cat >"$ENV_FILE" <<EOF
 export WINEDLLOVERRIDES="d3d9=n,b"
 export DXVK_CONFIG_FILE="$GAME_DIR/dxvk.conf"
 export DXVK_LOG_LEVEL="\${DXVK_LOG_LEVEL:-info}"
+# Write d3d9.log into the game directory. Required for Steam launches, which
+# start the game detached so its stdout cannot be captured by the launcher.
+export DXVK_LOG_PATH="\${DXVK_LOG_PATH:-$GAME_DIR}"
 export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
 # Optional if the host does not find MoltenVK:
 # export DYLD_LIBRARY_PATH="\$(brew --prefix molten-vk)/lib:\$DYLD_LIBRARY_PATH"
+#
+# Steam overlay (gameoverlayrenderer.dll) also hooks D3D9. For clean first-boot
+# diagnostics, launch-fallout3-host.sh --no-overlay disables it, or uncomment:
+# export WINEDLLOVERRIDES="\$WINEDLLOVERRIDES;gameoverlayrenderer=d;gameoverlayrenderer64=d"
 EOF
 
 echo "Installed SpockD3D9 override into:"
