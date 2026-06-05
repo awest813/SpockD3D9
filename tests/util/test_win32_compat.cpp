@@ -214,6 +214,73 @@ static void test_wait_multiple_blocking() {
   CHECK(CloseHandle(e1) == TRUE);
 }
 
+static void test_wait_multiple_all_concurrent_drain() {
+  // Regression: in WaitForMultipleObjectsEx(bWaitAll=TRUE) the readiness check
+  // and the acquire must be atomic. A concurrent thread draining one semaphore
+  // must never cause a partial acquire that consumes the other handle and then
+  // returns WAIT_FAILED. Here a competitor races for s1; the wait-all must
+  // either acquire both cleanly or block until both are available again — it
+  // must never silently swallow s0's count.
+  HANDLE s0 = CreateSemaphoreA(nullptr, 1, 1, nullptr);
+  HANDLE s1 = CreateSemaphoreA(nullptr, 1, 1, nullptr);
+  const HANDLE handles[] = { s0, s1 };
+
+  std::atomic<bool> stop{false};
+  std::atomic<int> competitorWins{0};
+
+  // Competitor repeatedly drains and refills s1, contending with the waiter.
+  std::thread competitor([&] {
+    while (!stop.load()) {
+      if (WaitForSingleObject(s1, 0) == WAIT_OBJECT_0) {
+        competitorWins++;
+        ReleaseSemaphore(s1, 1, nullptr);
+      }
+      std::this_thread::yield();
+    }
+  });
+
+  // The waiter must succeed a bounded number of times without ever wedging or
+  // returning WAIT_FAILED. Each success consumes both counts; we refill them.
+  for (int i = 0; i < 200; ++i) {
+    DWORD r = WaitForMultipleObjects(2, handles, TRUE, 1000);
+    CHECK(r == WAIT_OBJECT_0 || r == WAIT_TIMEOUT);
+    if (r == WAIT_OBJECT_0) {
+      // Both were consumed atomically — refill for the next round.
+      ReleaseSemaphore(s0, 1, nullptr);
+      ReleaseSemaphore(s1, 1, nullptr);
+    } else {
+      // Timed out because the competitor held s1; make sure s0 was NOT
+      // silently consumed (the partial-acquire bug). It must still be signaled.
+      CHECK(WaitForSingleObject(s0, 0) == WAIT_OBJECT_0);
+      ReleaseSemaphore(s0, 1, nullptr);
+    }
+  }
+
+  stop = true;
+  competitor.join();
+
+  CHECK(CloseHandle(s0) == TRUE);
+  CHECK(CloseHandle(s1) == TRUE);
+}
+
+static void test_wait_multiple_duplicate_handle() {
+  // A duplicate handle resolves to the same underlying object; the bWaitAll
+  // combined-lock path would otherwise lock the same mutex twice (UB). The
+  // implementation must reject duplicates with WAIT_FAILED.
+  HANDLE e0 = CreateEventA(nullptr, TRUE, TRUE, nullptr);  // manual-reset, signaled
+  HANDLE dup = nullptr;
+  CHECK(DuplicateHandle(GetCurrentProcess(), e0, GetCurrentProcess(),
+                        &dup, 0, FALSE, DUPLICATE_SAME_ACCESS) == TRUE);
+  CHECK(dup != nullptr);
+
+  const HANDLE handles[] = { e0, dup };
+  CHECK(WaitForMultipleObjects(2, handles, TRUE, 0) == WAIT_FAILED);
+  CHECK(WaitForMultipleObjects(2, handles, FALSE, 0) == WAIT_FAILED);
+
+  CHECK(CloseHandle(dup) == TRUE);
+  CHECK(CloseHandle(e0) == TRUE);
+}
+
 static void test_invalid_inputs() {
   CHECK(SetEvent(nullptr) == FALSE);
   CHECK(ResetEvent(INVALID_HANDLE_VALUE) == FALSE);
@@ -241,6 +308,8 @@ int main() {
   test_wait_multiple_any();
   test_wait_multiple_all();
   test_wait_multiple_blocking();
+  test_wait_multiple_all_concurrent_drain();
+  test_wait_multiple_duplicate_handle();
   test_invalid_inputs();
 
   if (g_failures == 0) {

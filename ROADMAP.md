@@ -151,11 +151,18 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
 | Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu workflow in [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md) — retail V4 pending |
 | Audit + polish Milestone F docs | **Done** | Audited status now aligned across [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md), [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md), and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
-| D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` smoke test (formats, SM3 caps, CreateDevice, Present, Reset); retail boot-to-menu still pending |
-| Shader compilation (SM2/SM3 + fixed-function) | **Partial (CI)** | `d3d9-gamebryo-probe` exercises FF `DrawPrimitiveUP` → SPIR-V → MSL; DXSO SM2/SM3 on retail shaders still pending |
-| Texture format support (DXT1–5, depth) | **CI probe** | `d3d9-gamebryo-probe` checks DXT1/3/5 + D24S8/D16 via `CheckDeviceFormat` |
-| Fullscreen / resolution enumeration | **Partial (CI)** | Probe: `EnumAdapterModes`, `GetAdapterDisplayMode`, `Reset`; exclusive fullscreen on host still pending |
-| Device lost / reset handling | Not started | Gamebryo calls `TestCooperativeLevel` + `Reset` on focus loss |
+| D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` covers: CreateDevice, formats, caps, all core geometry/texture/query paths (see below); retail boot-to-menu pending |
+| Shader compilation (SM2/SM3 + fixed-function) | **Partial (CI)** | `d3d9-gamebryo-probe` exercises FF paths (DrawPrimitive/DrawIndexedPrimitive/DrawPrimitiveUP) → SPIR-V → MSL; DXSO SM2/SM3 on retail shaders pending |
+| Texture format support (DXT1–5, depth, RT) | **CI probe** | DXT1/3/5, A8L8, D24S8/D16; A8R8G8B8 texture + RT; RT format availability logged (R16F, R32F, A16B16G16R16F, A32B32G32R32F); cube map; volume texture |
+| Fullscreen / resolution enumeration | **Partial (CI)** | Probe: `EnumAdapterModes`, `GetAdapterDisplayMode`, `Reset`; exclusive fullscreen on host pending |
+| Device lost / reset handling | **Done (code)** | `TestCooperativeLevel` + `Reset` + `NotifyWindowActivated` wired; `d3d9.deviceLossOnFocusLoss=False` in Fallout 3 profile; retail run pending |
+| Queries (occlusion, event, timestamp) | **CI probe** | `D3DQUERYTYPE_OCCLUSION`, `D3DQUERYTYPE_EVENT` (Issue/GetData); `D3DQUERYTYPE_TIMESTAMP` logged |
+| State blocks | **CI probe** | `CreateStateBlock`, `BeginStateBlock`/`EndStateBlock`, `Apply` |
+| Buffers + draw paths | **CI probe** | VB (MANAGED + DYNAMIC, Lock/DISCARD/fill), IB (16-bit), DrawPrimitive, DrawIndexedPrimitive |
+| Vertex declaration | **CI probe** | `D3DVERTEXELEMENT9` (XYZ+NORMAL+TEX0), `CreateVertexDeclaration`, `SetVertexDeclaration` |
+| Render states | **CI probe** | Viewport, scissor, alpha blend/test, stencil, fog |
+| Sampler + texture stage states | **CI probe** | MIN/MAG/MIP LINEAR, WRAP, MAXANISOTROPY; COLOROP/COLORARG, ALPHAOP |
+| Render-to-texture + MRT | **CI probe** | A8R8G8B8 RT + GetRenderTargetData; 2× MRT (non-fatal if NumSimultaneousRTs<2) |
 | `dxvk.conf` Fallout 3 profile | **Done** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf); CI-validated against documented options |
 | Benchmark profiles for Fallout: New Vegas, Dragon Age: Origins, and Galactic Civilizations II | **Done** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf), [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf), [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf); CI-validated against documented options |
 | Boot-to-menu validation | **In progress** | Scripts: `prepare-fallout3-host.sh`, `launch-fallout3-host.sh`, `check-boot-logs.sh`; guide: [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md); retail run pending |

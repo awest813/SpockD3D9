@@ -36,11 +36,20 @@ Run locally:
 
 | Check | Milestone F mapping |
 |-------|---------------------|
-| BCn formats (DXT1/3/5) | Texture format support |
+| BCn formats (DXT1/3/5), A8R8G8B8, L8, A8L8 | Texture format support |
 | D24S8 / D16 depth | Depth formats |
-| `GetAdapterDisplayMode` | Display enumeration |
+| RT format availability logged (A8R8G8B8, X8R8G8B8, R16F, R32F, A16B16G16R16F, A32B32G32R32F) | HDR / deferred lighting |
+| `GetAdapterDisplayMode` + `EnumAdapterModes` | Display enumeration |
 | `CheckDeviceMultiSampleType` (2×/4×, logged) | MSAA query |
 | SM3 `GetDeviceCaps` | Shader model |
+| `CreateStateBlock`, `BeginStateBlock`/`EndStateBlock`, `Apply` | Render state management |
+| `D3DQUERYTYPE_OCCLUSION` (Issue/GetData) | Occlusion queries (Gamebryo visibility culling) |
+| `D3DQUERYTYPE_EVENT` (Issue/GetData) | GPU fence / frame sync |
+| Viewport, scissor, alpha blend, alpha test, stencil, fog | Core render states |
+| Vertex buffers (MANAGED + DYNAMIC, Lock/fill) + `DrawPrimitive` | Buffer management (main game draw path) |
+| 16-bit index buffer + `DrawIndexedPrimitive` | Indexed geometry |
+| Texture A8R8G8B8 (mips, lock/upload, sampler states) + DXT1 create | Texture pipeline |
+| Render-to-texture (A8R8G8B8 RT + `GetRenderTargetData`) | Shadow maps / deferred |
 | `DrawPrimitiveUP` (fixed-function) | FF → SPIR-V → MSL pipeline |
 | `Present` + `Reset` | Device lifecycle |
 
