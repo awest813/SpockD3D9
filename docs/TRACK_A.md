@@ -42,7 +42,11 @@ Run locally:
 | `CheckDeviceMultiSampleType` (2×/4×, logged) | MSAA query |
 | SM3 `GetDeviceCaps` | Shader model |
 | `DrawPrimitiveUP` (fixed-function) | FF → SPIR-V → MSL pipeline |
+| `DrawIndexedPrimitive` from `DEFAULT` VB/IB (`Lock` DISCARD) | Buffer upload + indexed draw |
+| Occlusion + event (`D3DQUERYTYPE_OCCLUSION`/`EVENT`) queries | GPU visibility + fence/sync |
+| `CreateStateBlock(D3DSBT_ALL)` capture + `Apply` | Render state block management |
 | `Present` + `Reset` | Device lifecycle |
+| Device-lost reset cycle (`D3DPOOL_DEFAULT` blocks `Reset` → `D3DERR_DEVICENOTRESET` → `Reset` OK) | Device lost / reset handling |
 
 Pass line: `d3d9-gamebryo-probe: OK`.
 
