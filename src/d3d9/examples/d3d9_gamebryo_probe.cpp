@@ -6,10 +6,12 @@
  *   - Display mode enumeration, MSAA, SM3 caps
  *   - State blocks, occlusion + event + timestamp queries
  *   - Render states: viewport, scissor, alpha blend/test, stencil, fog
- *   - Vertex buffers (MANAGED + DYNAMIC), 16-bit index buffer
+ *   - Vertex buffers (MANAGED + DYNAMIC), 16-bit + 32-bit index buffer
+ *   - Lock flags: D3DLOCK_DISCARD, D3DLOCK_NOOVERWRITE, D3DLOCK_READONLY
  *   - DrawPrimitive, DrawIndexedPrimitive, DrawPrimitiveUP (fixed-function)
  *   - Vertex declaration (D3DVERTEXELEMENT9 / SetVertexDeclaration)
  *   - Texture A8R8G8B8 (mips, lock/upload, sampler), DXT1 create
+ *   - Sampler address modes: WRAP, CLAMP, MIRROR (BORDER logged, non-fatal)
  *   - Cube map (A8R8G8B8, lock/fill), volume texture (A8R8G8B8 16×16×4)
  *   - Render-to-texture (A8R8G8B8 RT + GetRenderTargetData)
  *   - MRT (2× A8R8G8B8, if NumSimultaneousRTs≥2)
@@ -398,6 +400,89 @@ namespace {
     return true;
   }
 
+  bool probeLockFlags(IDirect3DDevice9* device) {
+    struct Vert { float x, y, z; DWORD color; };
+    constexpr UINT  kSize = sizeof(Vert) * 3;
+    constexpr DWORD kFVF  = D3DFVF_XYZ | D3DFVF_DIFFUSE;
+    const Vert init[] = {
+      { 0.0f,  0.5f, 0.5f, D3DCOLOR_XRGB(200, 0, 0) },
+      { 0.5f, -0.5f, 0.5f, D3DCOLOR_XRGB(0, 200, 0) },
+      {-0.5f, -0.5f, 0.5f, D3DCOLOR_XRGB(0, 0, 200) },
+    };
+
+    // NOOVERWRITE on DYNAMIC VB: caller promises not to touch in-flight regions.
+    IDirect3DVertexBuffer9* dynVb = nullptr;
+    HRESULT hr = device->CreateVertexBuffer(
+      kSize, D3DUSAGE_DYNAMIC, kFVF, D3DPOOL_DEFAULT, &dynVb, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: CreateVertexBuffer DYNAMIC failed (0x%08lx)\n", hr);
+      return false;
+    }
+    void* ptr = nullptr;
+    hr = dynVb->Lock(0, kSize, &ptr, D3DLOCK_DISCARD);
+    if (FAILED(hr) || !ptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: DISCARD lock failed (0x%08lx)\n", hr);
+      dynVb->Release();
+      return false;
+    }
+    std::memcpy(ptr, init, kSize);
+    dynVb->Unlock();
+
+    ptr = nullptr;
+    hr = dynVb->Lock(0, kSize, &ptr, D3DLOCK_NOOVERWRITE);
+    if (FAILED(hr) || !ptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: NOOVERWRITE lock failed (0x%08lx)\n", hr);
+      dynVb->Release();
+      return false;
+    }
+    std::memcpy(ptr, init, kSize);
+    dynVb->Unlock();
+    dynVb->Release();
+    std::printf("d3d9-gamebryo-probe: LockFlags NOOVERWRITE OK\n");
+
+    // READONLY on MANAGED VB: verify data round-trip.
+    IDirect3DVertexBuffer9* mgdVb = nullptr;
+    hr = device->CreateVertexBuffer(kSize, 0, kFVF, D3DPOOL_MANAGED, &mgdVb, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: CreateVertexBuffer MANAGED failed (0x%08lx)\n", hr);
+      return false;
+    }
+    ptr = nullptr;
+    hr = mgdVb->Lock(0, kSize, &ptr, 0);
+    if (FAILED(hr) || !ptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: MANAGED init lock failed (0x%08lx)\n", hr);
+      mgdVb->Release();
+      return false;
+    }
+    std::memcpy(ptr, init, kSize);
+    mgdVb->Unlock();
+
+    ptr = nullptr;
+    hr = mgdVb->Lock(0, kSize, &ptr, D3DLOCK_READONLY);
+    if (FAILED(hr) || !ptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: LockFlags: READONLY lock failed (0x%08lx)\n", hr);
+      mgdVb->Release();
+      return false;
+    }
+    Vert check[3];
+    std::memcpy(check, ptr, kSize);
+    mgdVb->Unlock();
+    mgdVb->Release();
+
+    if (check[0].color != D3DCOLOR_XRGB(200, 0, 0)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: LockFlags: READONLY readback mismatch\n");
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: LockFlags READONLY OK\n");
+    return true;
+  }
+
   bool probeIndexBuffer(IDirect3DDevice9* device) {
     struct Vert { float x, y, z; DWORD color; };
     const Vert verts[] = {
@@ -462,6 +547,72 @@ namespace {
     }
 
     std::printf("d3d9-gamebryo-probe: IndexBuffer (16-bit) + DrawIndexedPrimitive OK\n");
+    return true;
+  }
+
+  bool probeIndexBuffer32(IDirect3DDevice9* device) {
+    struct Vert { float x, y, z; DWORD color; };
+    const Vert verts[] = {
+      { 0.0f,  0.5f, 0.5f, D3DCOLOR_XRGB(220, 120, 60) },
+      { 0.5f, -0.5f, 0.5f, D3DCOLOR_XRGB(60, 220, 120) },
+      {-0.5f, -0.5f, 0.5f, D3DCOLOR_XRGB(120, 60, 220) },
+    };
+    constexpr DWORD indices[] = { 0, 1, 2 };
+
+    IDirect3DVertexBuffer9* vb = nullptr;
+    HRESULT hr = device->CreateVertexBuffer(
+      sizeof(verts), 0, D3DFVF_XYZ | D3DFVF_DIFFUSE, D3DPOOL_MANAGED, &vb, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: IB32: CreateVertexBuffer failed (0x%08lx)\n", hr);
+      return false;
+    }
+    void* vptr = nullptr;
+    hr = vb->Lock(0, sizeof(verts), &vptr, 0);
+    if (FAILED(hr) || !vptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: IB32: VB Lock failed (0x%08lx)\n", hr);
+      vb->Release();
+      return false;
+    }
+    std::memcpy(vptr, verts, sizeof(verts));
+    vb->Unlock();
+
+    IDirect3DIndexBuffer9* ib = nullptr;
+    hr = device->CreateIndexBuffer(
+      sizeof(indices), 0, D3DFMT_INDEX32, D3DPOOL_MANAGED, &ib, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: CreateIndexBuffer 32-bit failed (0x%08lx)\n", hr);
+      vb->Release();
+      return false;
+    }
+    void* iptr = nullptr;
+    hr = ib->Lock(0, sizeof(indices), &iptr, 0);
+    if (FAILED(hr) || !iptr) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: IB32: Lock failed (0x%08lx)\n", hr);
+      ib->Release();
+      vb->Release();
+      return false;
+    }
+    std::memcpy(iptr, indices, sizeof(indices));
+    ib->Unlock();
+
+    device->SetStreamSource(0, vb, 0, sizeof(Vert));
+    device->SetFVF(D3DFVF_XYZ | D3DFVF_DIFFUSE);
+    device->SetIndices(ib);
+    hr = device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 3, 0, 1);
+
+    vb->Release();
+    ib->Release();
+
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: DrawIndexedPrimitive 32-bit failed (0x%08lx)\n", hr);
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: IndexBuffer (32-bit) + DrawIndexedPrimitive OK\n");
     return true;
   }
 
@@ -541,6 +692,78 @@ namespace {
     }
     tex->Release();
     std::printf("d3d9-gamebryo-probe: CreateTexture DXT1 OK\n");
+    return true;
+  }
+
+  bool probeSamplerAddressModes(IDirect3DDevice9* device) {
+    // Create a small MANAGED texture; exercise CLAMP, MIRROR, and BORDER address modes.
+    // BORDER is non-fatal: VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER is not guaranteed on all
+    // MoltenVK/Metal configurations.
+    IDirect3DTexture9* tex = nullptr;
+    HRESULT hr = device->CreateTexture(
+      4, 4, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &tex, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: SamplerAddrMode: CreateTexture failed (0x%08lx)\n", hr);
+      return false;
+    }
+    D3DLOCKED_RECT lr = {};
+    if (SUCCEEDED(tex->LockRect(0, &lr, nullptr, 0))) {
+      for (int y = 0; y < 4; ++y) {
+        DWORD* row = reinterpret_cast<DWORD*>(static_cast<uint8_t*>(lr.pBits) + y * lr.Pitch);
+        for (int x = 0; x < 4; ++x)
+          row[x] = D3DCOLOR_ARGB(255, 128, 128, 128);
+      }
+      tex->UnlockRect(0);
+    }
+    device->SetTexture(0, tex);
+    device->SetTextureStageState(0, D3DTSS_COLOROP,   D3DTOP_SELECTARG1);
+    device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+    device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+    device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+    // UVs intentionally out-of-range to exercise the address mode.
+    struct TexVert { float x, y, z, rhw, u, v; };
+    const TexVert quad[] = {
+      {  50.f,  50.f, 0.5f, 1.f, -0.5f, -0.5f },
+      { 150.f,  50.f, 0.5f, 1.f,  1.5f, -0.5f },
+      {  50.f, 150.f, 0.5f, 1.f, -0.5f,  1.5f },
+      { 150.f, 150.f, 0.5f, 1.f,  1.5f,  1.5f },
+    };
+    device->SetFVF(D3DFVF_XYZRHW | D3DFVF_TEX1);
+
+    static const struct { D3DTEXTUREADDRESS mode; const char* name; bool required; } kModes[] = {
+      { D3DTADDRESS_CLAMP,  "CLAMP",  true  },
+      { D3DTADDRESS_MIRROR, "MIRROR", true  },
+      { D3DTADDRESS_BORDER, "BORDER", false },
+    };
+
+    for (const auto& m : kModes) {
+      device->SetSamplerState(0, D3DSAMP_ADDRESSU, m.mode);
+      device->SetSamplerState(0, D3DSAMP_ADDRESSV, m.mode);
+      hr = device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(TexVert));
+      if (FAILED(hr)) {
+        if (m.required) {
+          std::fprintf(stderr,
+            "d3d9-gamebryo-probe: SamplerAddrMode %s failed (0x%08lx)\n", m.name, hr);
+          device->SetTexture(0, nullptr);
+          tex->Release();
+          return false;
+        }
+        std::printf(
+          "d3d9-gamebryo-probe: SamplerAddrMode %s not supported (0x%08lx) — skipped\n",
+          m.name, hr);
+      } else {
+        std::printf("d3d9-gamebryo-probe: SamplerAddrMode %s OK\n", m.name);
+      }
+    }
+
+    // Restore to WRAP so subsequent probes see a clean sampler state.
+    device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+    device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+    device->SetTexture(0, nullptr);
+    tex->Release();
     return true;
   }
 
@@ -1124,7 +1347,23 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  if (!probeLockFlags(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+
   if (!probeIndexBuffer(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+
+  if (!probeIndexBuffer32(device)) {
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);
@@ -1141,6 +1380,14 @@ int main(int argc, char** argv) {
   }
 
   if (!probeDxtTexture(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+
+  if (!probeSamplerAddressModes(device)) {
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);

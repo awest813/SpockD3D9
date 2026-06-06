@@ -111,7 +111,7 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 - [x] Cube maps — CI probe (A8R8G8B8 32×32, lock face 0 + fill)
 - [x] Mipmapping (auto-gen, full chain) — CI probe (CreateTexture with mip=0)
 - [x] Anisotropic filtering — CI probe (D3DSAMP_MAXANISOTROPY=8)
-- [x] Texture addressing modes (wrap) — CI probe (D3DTADDRESS_WRAP); clamp/mirror/border pending
+- [x] Texture addressing modes (wrap, clamp, mirror) — CI probe; border logged non-fatal (hardware-dependent)
 
 ### Swap chain and presentation
 
@@ -136,8 +136,8 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 ### Buffers
 
 - [x] Vertex buffers (MANAGED + DYNAMIC) — CI probe (Lock/fill/Draw; D3DLOCK_DISCARD for DYNAMIC)
-- [x] Index buffers (16-bit) — CI probe; 32-bit pending retail
-- [x] `Lock` / `Unlock` with `DISCARD` (DYNAMIC) and default (MANAGED) — CI probe; `NOOVERWRITE`/`READONLY` pending
+- [x] Index buffers (16-bit + 32-bit) — CI probe (D3DFMT_INDEX16 + D3DFMT_INDEX32)
+- [x] `Lock` / `Unlock` with `DISCARD`, `NOOVERWRITE` (DYNAMIC), `READONLY` (MANAGED) — CI probe
 - [x] MANAGED pool → device-local upload — CI probe (texture + VB MANAGED with mips)
 
 ### Queries

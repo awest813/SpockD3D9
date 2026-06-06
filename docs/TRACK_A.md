@@ -47,8 +47,10 @@ Run locally:
 | `D3DQUERYTYPE_EVENT` (Issue/GetData) | GPU fence / frame sync |
 | Viewport, scissor, alpha blend, alpha test, stencil, fog | Core render states |
 | Vertex buffers (MANAGED + DYNAMIC, Lock/fill) + `DrawPrimitive` | Buffer management (main game draw path) |
-| 16-bit index buffer + `DrawIndexedPrimitive` | Indexed geometry |
+| Lock flags: `D3DLOCK_DISCARD`, `D3DLOCK_NOOVERWRITE` (DYNAMIC), `D3DLOCK_READONLY` (MANAGED) | Buffer lock contract |
+| 16-bit + 32-bit index buffers + `DrawIndexedPrimitive` | Indexed geometry |
 | Texture A8R8G8B8 (mips, lock/upload, sampler states) + DXT1 create | Texture pipeline |
+| Sampler address modes: CLAMP, MIRROR (BORDER non-fatal) | Texture wrapping/edge behavior |
 | Render-to-texture (A8R8G8B8 RT + `GetRenderTargetData`) | Shadow maps / deferred |
 | `DrawPrimitiveUP` (fixed-function) | FF → SPIR-V → MSL pipeline |
 | `Present` + `Reset` | Device lifecycle |
