@@ -956,6 +956,28 @@ namespace dxvk {
       { "d3d9.floatEmulation",            "Strict" },
       { "d3d9.hideNvidiaGpu",               "True" },
     }} },
+    /* Dragon Age: Origins - Windows D3D9 benchmark *
+     * title. Mirrors the compat subset of           *
+     * tools/dragon-age-origins/dragon-age-origins.dxvk.conf */
+    { R"(\\daorigins\.exe$)", {{
+      { "dxvk.enableShaderCache",           "True" },
+      { "d3d9.shaderModel",                 "3" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",             "1" },
+      { "d3d9.deviceLossOnFocusLoss",       "False" },
+    }} },
+    /* Galactic Civilizations II - Windows D3D9       *
+     * benchmark title. Needs modeCountCompatibility  *
+     * for its display-mode enumeration. Mirrors       *
+     * tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf */
+    { R"(\\GC2.*\.exe$)", {{
+      { "dxvk.enableShaderCache",           "True" },
+      { "d3d9.shaderModel",                 "3" },
+      { "d3d9.modeCountCompatibility",      "True" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",             "1" },
+      { "d3d9.deviceLossOnFocusLoss",       "False" },
+    }} },
     /* Dungeons and Dragons: Dragonshard          *
      * Massive FPS decreases in some scenes       */
     { R"(\\Dragonshard\.exe$)", {{

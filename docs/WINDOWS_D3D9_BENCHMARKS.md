@@ -33,6 +33,16 @@ The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
 
+**Built-in profiles (auto-applied):** Fallout 3, Dragon Age: Origins, and
+Galactic Civilizations II also have compiled-in profiles in
+`src/util/config/config.cpp` that match the game executable and auto-apply the
+compat-relevant subset of the keys above (shader model, refresh-rate lock,
+frame latency, focus-loss handling, plus `modeCountCompatibility` for GalCiv II).
+Copying the `tools/**/*.dxvk.conf` file is therefore optional — use it to layer
+opt-in tuning (e.g. `presentInterval`) on top. Fallout: New Vegas ships a
+separate upstream built-in profile targeting the New Vegas Reloaded mod, so its
+boot conf must still be copied manually.
+
 ## Boot-to-menu workflow (Fallout 3)
 
 Automated helpers and V3/V4 criteria:
