@@ -122,7 +122,7 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 
 ### State management
 
-- [ ] Render state block (`CreateStateBlock`, `BeginStateBlock`, `EndStateBlock`)
+- [x] Render state block (`CreateStateBlock`, `BeginStateBlock`, `EndStateBlock`) — CI: `d3d9-gamebryo-probe` captures a `D3DSBT_ALL` block and verifies `Apply` restores render state; `BeginStateBlock`/`EndStateBlock` recording still manual
 - [ ] All render states Gamebryo uses (see upstream DXVK for coverage)
 - [ ] Sampler states (filtering, addressing, LOD bias, max anisotropy)
 - [ ] Texture stage states

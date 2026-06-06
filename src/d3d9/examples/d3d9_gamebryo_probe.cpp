@@ -317,6 +317,49 @@ namespace {
     return true;
   }
 
+  // Render state block capture/apply — Gamebryo uses state blocks to snapshot
+  // and restore render state. Create a D3DSBT_ALL block (captures current
+  // state), mutate the state, then Apply and confirm the captured value is
+  // restored. The block is released before returning so the device stays
+  // resettable (state blocks are losable resources).
+  bool runStateBlockCheck(IDirect3DDevice9* device) {
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+
+    IDirect3DStateBlock9* block = nullptr;
+    const HRESULT createHr = device->CreateStateBlock(D3DSBT_ALL, &block);
+    if (FAILED(createHr) || !block) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateStateBlock(D3DSBT_ALL) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+
+    const HRESULT applyHr = block->Apply();
+    block->Release();
+
+    if (FAILED(applyHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: state block Apply failed (0x%08lx)\n", applyHr);
+      return false;
+    }
+
+    DWORD fillMode = 0;
+    if (FAILED(device->GetRenderState(D3DRS_FILLMODE, &fillMode))) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: GetRenderState(FILLMODE) failed\n");
+      return false;
+    }
+
+    if (fillMode != D3DFILL_WIREFRAME) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: state block did not restore FILLMODE (got %lu)\n",
+        static_cast<unsigned long>(fillMode));
+      return false;
+    }
+
+    // Leave the device in the default fill mode for subsequent draws.
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+    std::printf("d3d9-gamebryo-probe: state block capture/apply OK\n");
+    return true;
+  }
+
   // Validate the device-lost / reset cycle Gamebryo drives on focus loss and
   // resolution changes. A live D3DPOOL_DEFAULT resource must block Reset, which
   // then reports D3DERR_DEVICENOTRESET through TestCooperativeLevel until the
@@ -553,6 +596,7 @@ int main(int argc, char** argv) {
 
   if (!drawFixedFunctionTriangle(device)
    || !drawIndexedFromBuffers(device)
+   || !runStateBlockCheck(device)
    || !runOcclusionQuery(device)
    || !runEventQuery(device)) {
     device->Release();
