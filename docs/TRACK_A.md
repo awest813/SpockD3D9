@@ -43,6 +43,7 @@ Run locally:
 | SM3 `GetDeviceCaps` | Shader model |
 | `DrawPrimitiveUP` (fixed-function) | FF → SPIR-V → MSL pipeline |
 | `Present` + `Reset` | Device lifecycle |
+| Device-lost reset cycle (`D3DPOOL_DEFAULT` blocks `Reset` → `D3DERR_DEVICENOTRESET` → `Reset` OK) | Device lost / reset handling |
 
 Pass line: `d3d9-gamebryo-probe: OK`.
 

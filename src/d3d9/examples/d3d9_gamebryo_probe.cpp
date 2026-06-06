@@ -177,6 +177,64 @@ namespace {
     return true;
   }
 
+  // Validate the device-lost / reset cycle Gamebryo drives on focus loss and
+  // resolution changes. A live D3DPOOL_DEFAULT resource must block Reset, which
+  // then reports D3DERR_DEVICENOTRESET through TestCooperativeLevel until the
+  // resource is released and Reset is retried. This mirrors the
+  // TestCooperativeLevel + Reset loop Fallout 3 runs when it regains focus.
+  bool exerciseResetCycle(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS presentParams) {
+    IDirect3DVertexBuffer9* defaultVbo = nullptr;
+    const HRESULT createHr = device->CreateVertexBuffer(
+      6 * sizeof(float) * 3,
+      D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY,
+      D3DFVF_XYZRHW | D3DFVF_DIFFUSE,
+      D3DPOOL_DEFAULT,
+      &defaultVbo,
+      nullptr);
+
+    if (FAILED(createHr) || !defaultVbo) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateVertexBuffer (DEFAULT) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: CreateVertexBuffer (D3DPOOL_DEFAULT) OK\n");
+
+    // Reset must be rejected while the DEFAULT-pool buffer is still alive.
+    presentParams.BackBufferWidth  = 800;
+    presentParams.BackBufferHeight = 600;
+    const HRESULT blockedHr = device->Reset(&presentParams);
+    if (SUCCEEDED(blockedHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: Reset unexpectedly succeeded with a live D3DPOOL_DEFAULT resource\n");
+      defaultVbo->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: Reset correctly rejected with live default resource (0x%08lx)\n", blockedHr);
+
+    // TestCooperativeLevel should now report that the device needs a reset.
+    const HRESULT notResetHr = device->TestCooperativeLevel();
+    if (notResetHr != D3DERR_DEVICENOTRESET) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: expected D3DERR_DEVICENOTRESET, got 0x%08lx\n", notResetHr);
+      defaultVbo->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: TestCooperativeLevel reports D3DERR_DEVICENOTRESET\n");
+
+    // Release the losable resource and retry: Reset must now succeed.
+    defaultVbo->Release();
+    const HRESULT resetHr = device->Reset(&presentParams);
+    if (FAILED(resetHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: Reset after releasing default resource failed (0x%08lx)\n", resetHr);
+      return false;
+    }
+
+    const HRESULT okHr = device->TestCooperativeLevel();
+    if (okHr != D3D_OK) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: TestCooperativeLevel not OK after reset (0x%08lx)\n", okHr);
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: device-lost reset cycle OK\n");
+    return true;
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -408,6 +466,14 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::printf("d3d9-gamebryo-probe: Reset OK\n");
+
+  if (!exerciseResetCycle(device, presentParams)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
 
   device->Release();
   d3d9->Release();

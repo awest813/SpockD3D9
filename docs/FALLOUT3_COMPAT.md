@@ -50,9 +50,11 @@ still pending.
 - **Native CI probe:** `d3d9-gamebryo-probe` (Track A / MoltenVK) exercises
   Gamebryo-typical `CreateDevice` parameters, BCn/D24S8 format queries, display
   mode enumeration, MSAA checks, SM3 caps, fixed-function `DrawPrimitiveUP`
-  (SPIR-V → MSL), Present, and `Reset` on macOS CI. See [TRACK_A.md](TRACK_A.md).
-  This covers V1–V2 on the native path only; DXSO SM2/SM3 on retail shaders
-  remains manual.
+  (SPIR-V → MSL), Present, and the full device-lost/`Reset` cycle
+  (`D3DPOOL_DEFAULT` resource blocks `Reset` → `TestCooperativeLevel` reports
+  `D3DERR_DEVICENOTRESET` → `Reset` succeeds after release) on macOS CI. See
+  [TRACK_A.md](TRACK_A.md). This covers V1–V2 on the native path only; DXSO
+  SM2/SM3 on retail shaders remains manual.
 - **Runtime game milestones:** Retail boot-to-menu (V3+) still unverified on real
   host/game runs. Treat the V1–V10 table below as the active tracker for manual progression.
 - **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
@@ -69,8 +71,8 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 
 - [ ] `Direct3DCreate9` → `IDirect3D9` creation
 - [ ] `IDirect3D9::CreateDevice` with appropriate flags
-- [ ] `IDirect3DDevice9::TestCooperativeLevel` (focus loss / device lost)
-- [ ] `IDirect3DDevice9::Reset` (resolution change, fullscreen toggle)
+- [x] `IDirect3DDevice9::TestCooperativeLevel` (focus loss / device lost) — CI: `d3d9-gamebryo-probe` validates `D3D_OK` → `D3DERR_DEVICENOTRESET` → `D3D_OK` across the reset cycle
+- [x] `IDirect3DDevice9::Reset` (resolution change, fullscreen toggle) — CI: `d3d9-gamebryo-probe` resizes the backbuffer and exercises the losable-resource reset cycle
 - [ ] Adapter enumeration (`GetAdapterCount`, `GetAdapterIdentifier`)
 - [ ] Display mode enumeration (`EnumAdapterModes`, `GetAdapterDisplayMode`)
 - [ ] `CheckDeviceFormat` for all formats Gamebryo queries
