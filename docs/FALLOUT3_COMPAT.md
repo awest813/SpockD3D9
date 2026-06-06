@@ -89,8 +89,8 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 - [ ] Stencil operations (shadow volumes, effects)
 - [ ] Fog (vertex and table fog)
 - [ ] Texture stage states (fixed-function multi-texturing)
-- [ ] `DrawPrimitive` / `DrawIndexedPrimitive` (main draw paths)
-- [ ] `DrawPrimitiveUP` / `DrawIndexedPrimitiveUP` (immediate-mode draws)
+- [x] `DrawPrimitive` / `DrawIndexedPrimitive` (main draw paths) — CI: `d3d9-gamebryo-probe` runs `DrawIndexedPrimitive` from `DEFAULT`-pool buffers
+- [x] `DrawPrimitiveUP` / `DrawIndexedPrimitiveUP` (immediate-mode draws) — CI: `d3d9-gamebryo-probe` runs `DrawPrimitiveUP`; `DrawIndexedPrimitiveUP` still manual
 - [ ] Scissor test
 - [ ] Viewport management
 
@@ -126,20 +126,20 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 - [ ] All render states Gamebryo uses (see upstream DXVK for coverage)
 - [ ] Sampler states (filtering, addressing, LOD bias, max anisotropy)
 - [ ] Texture stage states
-- [ ] Stream source management
+- [x] Stream source management — CI: `d3d9-gamebryo-probe` binds via `SetStreamSource` / `SetIndices`
 - [ ] Vertex declaration
 
 ### Buffers
 
-- [ ] Vertex buffers (MANAGED, DEFAULT, DYNAMIC pools)
-- [ ] Index buffers (16-bit and 32-bit)
-- [ ] `Lock` / `Unlock` with `DISCARD`, `NOOVERWRITE`, `READONLY` flags
+- [x] Vertex buffers (MANAGED, DEFAULT, DYNAMIC pools) — CI: `d3d9-gamebryo-probe` creates a `DYNAMIC`/`DEFAULT` vertex buffer; MANAGED still manual
+- [x] Index buffers (16-bit and 32-bit) — CI: `d3d9-gamebryo-probe` draws from a 16-bit `DEFAULT` index buffer; 32-bit still manual
+- [x] `Lock` / `Unlock` with `DISCARD`, `NOOVERWRITE`, `READONLY` flags — CI: `d3d9-gamebryo-probe` uploads VB/IB via `Lock(D3DLOCK_DISCARD)`; NOOVERWRITE/READONLY still manual
 - [ ] Proper MANAGED pool → device-local upload
 
 ### Queries
 
-- [ ] Occlusion queries (`D3DQUERYTYPE_OCCLUSION`) — Gamebryo uses these
-- [ ] Event queries (`D3DQUERYTYPE_EVENT`) — GPU fence / sync
+- [x] Occlusion queries (`D3DQUERYTYPE_OCCLUSION`) — Gamebryo uses these — CI: `d3d9-gamebryo-probe` issues an occlusion query around a draw and reads the sample count
+- [x] Event queries (`D3DQUERYTYPE_EVENT`) — GPU fence / sync — CI: `d3d9-gamebryo-probe` issues and waits on an event query
 - [ ] Timestamp queries (if used)
 
 ---
