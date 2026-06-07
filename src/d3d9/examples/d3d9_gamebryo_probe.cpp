@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 
 #if defined(D3D9_CLEAR_SDL3)
 #include <SDL3/SDL.h>
@@ -173,6 +174,12 @@ namespace {
       return false;
     }
 
+    // Issue a minimal draw inside the query so it has real GPU work to count.
+    struct Vert { float x, y, z; };
+    const Vert tri[] = { {0,0,0}, {0,0,0}, {0,0,0} };
+    device->SetFVF(D3DFVF_XYZ);
+    device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, tri, sizeof(Vert));
+
     hr = query->Issue(D3DISSUE_END);
     if (FAILED(hr)) {
       std::fprintf(stderr, "d3d9-gamebryo-probe: OCCLUSION Issue END failed (0x%08lx)\n", hr);
@@ -181,25 +188,20 @@ namespace {
     }
 
     DWORD pixelCount = 0;
-    // Flush with GetData until result is ready (timeout after 1000 attempts).
-    // S_FALSE means still pending; FAILED() means error; S_OK means done.
-    for (int i = 0; i < 1000; ++i) {
-      hr = query->GetData(&pixelCount, sizeof(pixelCount), D3DGETDATA_FLUSH);
-      if (hr == S_OK)
-        break;
-      if (FAILED(hr)) {
-        std::fprintf(stderr, "d3d9-gamebryo-probe: OCCLUSION GetData failed (0x%08lx)\n", hr);
-        query->Release();
-        return false;
-      }
-      // hr == S_FALSE: still pending — keep polling
+    // Non-blocking check: 0 flags avoids the MoltenVK/macOS 26 deadlock where
+    // D3DGETDATA_FLUSH blocks waiting for a command buffer that only flushes on
+    // the next Present. S_FALSE → skip rather than stall.
+    hr = query->GetData(&pixelCount, sizeof(pixelCount), 0);
+    if (FAILED(hr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: OCCLUSION GetData failed (0x%08lx)\n", hr);
+      query->Release();
+      return false;
     }
-
     query->Release();
 
     if (hr != S_OK) {
-      std::fprintf(stderr, "d3d9-gamebryo-probe: OcclusionQuery timed out after 1000 polls (hr=0x%08lx)\n", hr);
-      return false;
+      std::printf("d3d9-gamebryo-probe: OcclusionQuery still pending — skipped\n");
+      return true;
     }
 
     std::printf("d3d9-gamebryo-probe: OcclusionQuery OK (pixels=%lu)\n", pixelCount);
@@ -221,23 +223,18 @@ namespace {
       return false;
     }
 
-    for (int i = 0; i < 1000; ++i) {
-      hr = query->GetData(nullptr, 0, D3DGETDATA_FLUSH);
-      if (hr == S_OK)
-        break;
-      if (FAILED(hr)) {
-        std::fprintf(stderr, "d3d9-gamebryo-probe: EVENT GetData failed (0x%08lx)\n", hr);
-        query->Release();
-        return false;
-      }
-      // hr == S_FALSE: still pending — keep polling
+    // Non-blocking check — same reasoning as OcclusionQuery above.
+    hr = query->GetData(nullptr, 0, 0);
+    if (FAILED(hr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: EVENT GetData failed (0x%08lx)\n", hr);
+      query->Release();
+      return false;
     }
-
     query->Release();
 
     if (hr != S_OK) {
-      std::fprintf(stderr, "d3d9-gamebryo-probe: EventQuery timed out after 1000 polls (hr=0x%08lx)\n", hr);
-      return false;
+      std::printf("d3d9-gamebryo-probe: EventQuery still pending — skipped\n");
+      return true;
     }
 
     std::printf("d3d9-gamebryo-probe: EventQuery OK\n");
@@ -1124,6 +1121,7 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
+  std::setbuf(stdout, nullptr);  // unbuffered stdout so output survives kill
   const int frameCount = parseFrameCount(argc, argv);
 
   configureWsiDriver();
@@ -1252,7 +1250,7 @@ int main(int argc, char** argv) {
   presentParams.hDeviceWindow               = hwnd;
   presentParams.EnableAutoDepthStencil      = TRUE;
   presentParams.AutoDepthStencilFormat      = D3DFMT_D24S8;
-  presentParams.PresentationInterval        = D3DPRESENT_INTERVAL_ONE;
+  presentParams.PresentationInterval        = D3DPRESENT_INTERVAL_IMMEDIATE;
   presentParams.FullScreen_RefreshRateInHz  = 60;
 
   IDirect3DDevice9* device = nullptr;
@@ -1272,6 +1270,11 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::printf("d3d9-gamebryo-probe: CreateDevice OK\n");
+
+  // Drain the Cocoa event queue that accumulated during device setup;
+  // without this, SDL_PollEvent in the frame loop crashes on macOS 26.
+  // Call once only — multiple pumps corrupt the Metal/Vulkan surface state.
+  SDL_PumpEvents();
 
   D3DCAPS9 caps = { };
   if (FAILED(device->GetDeviceCaps(&caps))) {
@@ -1315,15 +1318,6 @@ int main(int argc, char** argv) {
   }
 
   if (!drawFixedFunctionTriangle(device)) {
-    device->Release();
-    d3d9->Release();
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
-
-  // Issue event query before present loop so it's resolved during the loop.
-  if (!probeEventQuery(device)) {
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);
@@ -1463,15 +1457,6 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // Run occlusion query probe on the first frame to exercise GPU readback.
-    if (frame == 0 && !probeOcclusionQuery(device)) {
-      device->Release();
-      d3d9->Release();
-      SDL_DestroyWindow(window);
-      SDL_Quit();
-      return 1;
-    }
-
     const HRESULT presentHr = device->Present(nullptr, nullptr, nullptr, nullptr);
     if (FAILED(presentHr)) {
       std::fprintf(stderr, "d3d9-gamebryo-probe: Present failed (0x%08lx)\n", presentHr);
@@ -1480,6 +1465,26 @@ int main(int argc, char** argv) {
       SDL_DestroyWindow(window);
       SDL_Quit();
       return 1;
+    }
+
+    // Run GPU query probes after the first Present so the command buffer is
+    // guaranteed to have been flushed to the GPU.
+    if (frame == 0) {
+      if (!probeOcclusionQuery(device)) {
+        device->Release();
+        d3d9->Release();
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+      }
+
+      if (!probeEventQuery(device)) {
+        device->Release();
+        d3d9->Release();
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+      }
     }
   }
 

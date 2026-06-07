@@ -400,8 +400,11 @@ namespace dxvk {
     rsInfo.polygonMode        = VK_POLYGON_MODE_FILL;
     rsInfo.lineWidth          = 1.0f;
 
-    // Only use the fixed depth clip state if we can't make it dynamic
-    if (!m_device->features().extExtendedDynamicState3.extendedDynamicState3DepthClipEnable) {
+    // Only use the fixed depth clip state if the extension is available and
+    // we can't make it dynamic.  If neither path is available (e.g. MoltenVK on
+    // macOS 26), skip the struct entirely — hardware defaults to depth-clip-on.
+    if (m_device->features().extDepthClipEnable.depthClipEnable
+     && !m_device->features().extExtendedDynamicState3.extendedDynamicState3DepthClipEnable) {
       rsDepthClipInfo.pNext = std::exchange(rsInfo.pNext, &rsDepthClipInfo);
       rsDepthClipInfo.depthClipEnable = VK_TRUE;
     }

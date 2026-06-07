@@ -822,7 +822,9 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, sampleRateShading, true),
       ENABLE_FEATURE(core.features, samplerAnisotropy, true),
       ENABLE_FEATURE(core.features, shaderClipDistance, true),
-      ENABLE_FEATURE(core.features, shaderCullDistance, true),
+      // D3D9 DXSO shaders do not use cull distances; MoltenVK on macOS 26 (Tahoe)
+      // does not advertise this feature, so demote to optional for portability.
+      ENABLE_FEATURE(core.features, shaderCullDistance, false),
       ENABLE_FEATURE(core.features, shaderFloat64, false),
       ENABLE_FEATURE(core.features, shaderImageGatherExtended, true),
       ENABLE_FEATURE(core.features, shaderInt16, true),
@@ -903,7 +905,11 @@ namespace dxvk {
       ENABLE_EXT_FEATURE(extCustomBorderColor, customBorderColorWithoutFormat, false),
 
       /* Depth clip matches D3D semantics where depth clamp does not */
-      ENABLE_EXT_FEATURE(extDepthClipEnable, depthClipEnable, true),
+      // MoltenVK on macOS 26 (Tahoe) / Apple Silicon does not expose this extension.
+      // D3D9 always requests depth clip enabled (hardware default), so omitting the
+      // pipeline struct is safe.  D3D10/11 depth-clip-off paths may misbehave on
+      // such devices.
+      ENABLE_EXT_FEATURE(extDepthClipEnable, depthClipEnable, false),
 
       /* Controls depth bias behaviour with emulated depth formats */
       ENABLE_EXT_FEATURE(extDepthBiasControl, depthBiasControl, false),
@@ -956,9 +962,13 @@ namespace dxvk {
       ENABLE_EXT_FEATURE(extPageableDeviceLocalMemory, pageableDeviceLocalMemory, false),
 
       /* Robustness, all features effectively required for correctness */
-      ENABLE_EXT_FEATURE(extRobustness2, robustBufferAccess2, true),
+      // robustBufferAccess2: D3D9 code already checks this feature at runtime and
+      // falls back gracefully.  MoltenVK on macOS 26 (Tahoe) does not expose it.
+      ENABLE_EXT_FEATURE(extRobustness2, robustBufferAccess2, false),
       ENABLE_EXT_FEATURE(extRobustness2, robustImageAccess2, false),
-      ENABLE_EXT_FEATURE(extRobustness2, nullDescriptor, true),
+      // nullDescriptor: m_nullDescriptors is zero-initialised; Metal handles null
+      // descriptors more leniently than strict Vulkan.  Demote for macOS 26.
+      ENABLE_EXT_FEATURE(extRobustness2, nullDescriptor, false),
 
       /* Sample locations, used to "disable" MSAA rendering */
       ENABLE_EXT(extSampleLocations, false),

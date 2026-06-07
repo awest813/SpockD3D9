@@ -112,6 +112,24 @@ MoltenVK version: `brew info molten-vk` or check the loader path printed in DXVK
 
 ---
 
+## Vulkan feature gaps on macOS
+
+The table below captures Vulkan features that DXVK requires on other platforms but are absent or unreliable on some macOS + MoltenVK configurations.
+
+| Feature | macOS status | SpockD3D9 handling |
+|---------|-------------|-------------------|
+| `shaderCullDistance` | Not advertised by MoltenVK 1.4.x on macOS 26 (Tahoe) / Apple Silicon | Demoted to optional. D3D9 DXSO shaders do not use cull distances; no functional impact for D3D9. D3D10/11 DXBC shaders using `gl_CullDistance[]` may fail to compile. |
+| `VK_EXT_depth_clip_enable` | Not exposed by MoltenVK 1.4.x on macOS 26 (Tahoe) | Demoted to optional. D3D9 always requests depth-clip-enabled (hardware default on Metal), so the `VkPipelineRasterizationDepthClipStateCreateInfoEXT` struct is simply omitted when the extension is absent. D3D10/11 "depth clip off" paths would be broken. Pipeline struct guard also added in `dxvk_shader.cpp`. |
+| `VK_EXT_robustness2` features | `robustBufferAccess2` and `nullDescriptor` not advertised on macOS 26 | Both demoted to optional. D3D9 code already guards `robustBufferAccess2` use; `m_nullDescriptors` is zero-initialised as a safe fallback. |
+| Swapchain / `vkCreateMetalSurfaceEXT` | On macOS 26 + MoltenVK 1.4.1, `vkGetPhysicalDeviceSurfaceCapabilities2KHR` crashes inside `wsi_unwrap_icd_surface` when SDL2's Vulkan surface is used after `SDL_PumpEvents()` | Workaround not yet found. `d3d9-gamebryo-probe-sdl2` runs all D3D9 API probes successfully; the Present/swapchain step crashes due to this MoltenVK bug. CI targets (macos-13, macos-14) are unaffected. |
+| SDL3 `vkGetInstanceProcAddr` | On macOS 26 + MoltenVK 1.4.1, Cocoa_Vulkan_CreateSurface crashes in `MVKInstance::getEntryPoint` with a PAC authentication failure | SDL2 path used as fallback via `d3d9-gamebryo-probe-sdl2`. |
+| `shaderClipDistance` | Supported | Required — D3D9 SetClipPlane maps to this. |
+| `samplerAnisotropy` | Supported | Required. |
+
+If you see `Skipping: Device does not support required feature 'shaderCullDistance'` in logs, your MoltenVK version is older than the one where SpockD3D9 demoted the requirement. Update to a build that includes the `dxvk_device_info.cpp` change or re-build from source.
+
+---
+
 ## References
 
 - [MoltenVK supported Vulkan features](https://github.com/KhronosGroup/MoltenVK#supported-vulkan-features)
