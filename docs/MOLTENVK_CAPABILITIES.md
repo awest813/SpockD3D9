@@ -128,6 +128,36 @@ The table below captures Vulkan features that DXVK requires on other platforms b
 
 If you see `Skipping: Device does not support required feature 'shaderCullDistance'` in logs, your MoltenVK version is older than the one where SpockD3D9 demoted the requirement. Update to a build that includes the `dxvk_device_info.cpp` change or re-build from source.
 
+### macOS 26 (Tahoe) + MoltenVK 1.4.1 present-path race
+
+On macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1, a workload that **interleaves GPU
+resource allocation and draws with `Present`** crashes intermittently in the
+swapchain acquire/recreate path. Observed crash sites (all `EXC_BAD_ACCESS`):
+
+- `Presenter::acquireNextImage` → `std::condition_variable::wait` (fault @ 0x58)
+- `MVKDeviceMemory::ensureMTLBuffer` → `AGXG13GFamilyResidencySet _commitAddedAllocations` (with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`)
+- `vkGetPhysicalDeviceSurfaceCapabilities2KHR` → `wsi_unwrap_icd_surface`
+
+**Diagnosis: this is an upstream MoltenVK/Metal driver race, not a SpockD3D9 bug.**
+Evidence:
+
+1. The crash site is **non-deterministic** — it moves between different `Present`
+   call sites from run to run, which is the signature of a threading race rather
+   than a deterministic logic error.
+2. `d3d9-clear` / `d3d9-clear-sdl2` (a pure Clear+Present loop, no resource
+   allocation) runs **cleanly at 1, 5, 20, and 60 frames** — the present path
+   itself is sound; the crash only appears once GPU resource/draw work is mixed in.
+3. It reproduces identically with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` = 1 and 2,
+   and is unaffected by `MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1` and
+   `MVK_CONFIG_PRESENT_WITH_COMMAND_BUFFER=1`.
+4. All ~40 D3D9 API probes (formats, geometry, textures, MRT, sampler modes,
+   lock flags, render-to-texture, vertex declarations) pass before the crash.
+
+**CI is unaffected:** the project's CI targets (macos-13 Intel, macos-14 Apple
+Silicon) ship older MoltenVK and do not exhibit this race. The fix belongs
+upstream in MoltenVK — file against KhronosGroup/MoltenVK with the stacks above,
+or retest on a MoltenVK build newer than 1.4.1.
+
 ---
 
 ## References
