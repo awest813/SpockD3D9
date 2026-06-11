@@ -1,2 +1,9 @@
 build-pe-d3d9/
 build-test/
+
+# Local macOS smoke-test artifacts
+# DXVK writes a per-process log (<exe>_d3d9.log) into the working directory,
+# and meson leaves a wrap lock when subprojects are resolved.
+*_d3d9.log
+d3d9.log
+subprojects/.wraplock
