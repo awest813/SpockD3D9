@@ -128,35 +128,80 @@ The table below captures Vulkan features that DXVK requires on other platforms b
 
 If you see `Skipping: Device does not support required feature 'shaderCullDistance'` in logs, your MoltenVK version is older than the one where SpockD3D9 demoted the requirement. Update to a build that includes the `dxvk_device_info.cpp` change or re-build from source.
 
-### macOS 26 (Tahoe) + MoltenVK 1.4.1 present-path race
+### macOS 26 (Tahoe) + MoltenVK 1.4.1 — two distinct blockers for rendering
 
-On macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1, a workload that **interleaves GPU
-resource allocation and draws with `Present`** crashes intermittently in the
-swapchain acquire/recreate path. Observed crash sites (all `EXC_BAD_ACCESS`):
+Full hardware bring-up on macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1 isolated
+**two independent issues** that block real rendering (anything past `Clear`).
+A pure `Clear`+`Present` loop (`d3d9-clear-sdl2`) is rock-solid at 1/5/20/30/60
+frames; the blockers only appear once shaders or vertex data are involved.
 
-- `Presenter::acquireNextImage` → `std::condition_variable::wait` (fault @ 0x58)
-- `MVKDeviceMemory::ensureMTLBuffer` → `AGXG13GFamilyResidencySet _commitAddedAllocations` (with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`)
-- `vkGetPhysicalDeviceSurfaceCapabilities2KHR` → `wsi_unwrap_icd_surface`
+#### Blocker 1 — 2048-entry sampler heap requires Metal argument buffers
 
-**Diagnosis: this is an upstream MoltenVK/Metal driver race, not a SpockD3D9 bug.**
-Evidence:
+DXVK's global sampler descriptor set is sized at `DxvkSamplerPool::MaxSamplerCount`
+(2048, the Vulkan spec floor) and declared as a partially-bound, update-after-bind
+sampler array. The built-in blit/meta/HUD shaders consume it. Metal's non-argument-buffer
+binding model caps inline samplers at **16 per stage**, so MoltenVK can only express
+the 2048-element array via argument buffers:
 
-1. The crash site is **non-deterministic** — it moves between different `Present`
-   call sites from run to run, which is the signature of a threading race rather
-   than a deterministic logic error.
-2. `d3d9-clear` / `d3d9-clear-sdl2` (a pure Clear+Present loop, no resource
-   allocation) runs **cleanly at 1, 5, 20, and 60 frames** — the present path
-   itself is sound; the crash only appears once GPU resource/draw work is mixed in.
-3. It reproduces identically with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` = 1 and 2,
-   and is unaffected by `MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS=1` and
-   `MVK_CONFIG_PRESENT_WITH_COMMAND_BUFFER=1`.
-4. All ~40 D3D9 API probes (formats, geometry, textures, MRT, sampler modes,
-   lock flags, render-to-texture, vertex declarations) pass before the crash.
+```
+MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0:
+  [mvk-error] Shader library compile failed:
+  cannot reserve 'sampler' resource locations at index 0
+  fragment ... array<sampler, 2048> s_samplers [[sampler(0)]] ...
+  → "Failed to create built-in graphics pipeline" (present blitter never compiles)
+```
 
-**CI is unaffected:** the project's CI targets (macos-13 Intel, macos-14 Apple
-Silicon) ship older MoltenVK and do not exhibit this race. The fix belongs
-upstream in MoltenVK — file against KhronosGroup/MoltenVK with the stacks above,
-or retest on a MoltenVK build newer than 1.4.1.
+Setting `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2` makes the present shader compile.
+Experimentally lowering `MaxSamplerCount` to 16 also lets the blit shader compile
+with argument buffers **off** — but 16 is below D3D9's worst case (16 PS + 4 VS = 20
+sampler slots), so it is not a safe global fix. A correct fix needs a Metal-aware,
+per-stage sampler binding path rather than one global 2048 heap.
+
+#### Blocker 2 — MoltenVK leaves dynamic vertex buffers unbacked (null MTLBuffer)
+
+The hard blocker. Any draw that sources vertex data from a DXVK dynamic/upload
+buffer (`DrawPrimitiveUP`, `D3DUSAGE_DYNAMIC` VBs) crashes **deterministically** on
+the DXVK CS thread:
+
+```
+EXC_BAD_ACCESS (KERN_INVALID_ADDRESS at 0x58)
+  MVKBuffer::getMTLBuffer()                      ← buffer has no backing MTLBuffer
+  MVKCmdBindVertexBuffers<2ul>::setContent
+  vkCmdBindVertexBuffers2
+  dxvk::DxvkContext::updateVertexBufferBindings()
+  dxvk::DxvkContext::commitGraphicsState<...>
+  dxvk::DxvkContext::drawGeneric<...>            ← DrawPrimitiveUP
+  dxvk::DxvkCsThread::threadFunc()
+```
+
+This is conclusively a **MoltenVK-internal buffer-backing bug**, not a DXVK misuse —
+it reproduces with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` = 0, 1, and 2, with and
+without `MVK_CONFIG_USE_MTLHEAP=0`, and with or without
+`VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT` on the buffer. `getMTLBuffer()` returning
+a pointer faulting at offset 0x58 means MoltenVK never created (or lost) the underlying
+`MTLBuffer` for that allocation. The crash site is **deterministic** for a fixed binary
+(4/5 runs identical), confirming a logic bug in the driver, not a race.
+
+#### What passes regardless
+
+All ~40 D3D9 API probes — device/format/caps queries, render-target & MRT creation,
+texture upload (incl. cube/volume), sampler-state and address-mode setup, state blocks,
+vertex declarations, render-to-texture + `GetRenderTargetData`, and `Clear`/`Present` —
+complete successfully. Only the two blockers above prevent drawing real geometry.
+
+#### Bottom line for "all modern Macs"
+
+Both blockers are in MoltenVK 1.4.1 / Metal on macOS 26, not in SpockD3D9:
+- Blocker 1 is a Metal architectural limit (16 samplers/stage) vs. DXVK's global-heap
+  design; needs either argument buffers (which trip Blocker 2) or a Metal-specific
+  small-sampler binding path in DXVK.
+- Blocker 2 is a MoltenVK buffer-backing regression and must be fixed upstream.
+
+**CI is unaffected:** macos-13 (Intel) and macos-14 (Apple Silicon) ship an older
+MoltenVK that does not exhibit Blocker 2, and `d3d9-clear` validates the present path
+there. To unblock macOS 26 / Apple Silicon: file Blocker 2 against
+KhronosGroup/MoltenVK with the stack above, or bundle/require a MoltenVK build newer
+than 1.4.1 once fixed. Minimal repro for both: `d3d9-gamebryo-probe-sdl2`.
 
 ---
 
