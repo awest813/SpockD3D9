@@ -15,8 +15,13 @@
  *   - Cube map (A8R8G8B8, lock/fill), volume texture (A8R8G8B8 16×16×4)
  *   - Render-to-texture (A8R8G8B8 RT + GetRenderTargetData)
  *   - MRT (2× A8R8G8B8, if NumSimultaneousRTs≥2)
- *   - GetFrontBufferData (logged, non-fatal)
+ *   - GetFrontBufferData (logged after first Present, non-fatal)
  *   - Present + Reset
+ * Structure: a warm-up Clear+Present after CreateDevice establishes the swapchain;
+ * each draw-based probe section calls flushFrame() (Clear+Present) to keep the
+ * back buffer in a clean state for the next probe.  This also exercises Present
+ * repeatedly, which is a proxy for the Gamebryo frame-present path.
+ *
  * Intended for CI on macOS alongside d3d9-clear; does not require the game binary.
  *
  * Exit 0 when the probe prints "d3d9-gamebryo-probe: OK".
@@ -804,7 +809,7 @@ namespace {
       return false;
     }
 
-    device->Clear(0, nullptr, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 128, 255), 1.0f, 0);
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 128, 255), 1.0f, 0);
 
     // Read back into a system-mem surface
     IDirect3DSurface9* readback = nullptr;
@@ -983,7 +988,7 @@ namespace {
 
     device->SetRenderTarget(0, rt0Surf);
     device->SetRenderTarget(1, rt1Surf);
-    device->Clear(0, nullptr, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
 
     // Restore
     device->SetRenderTarget(0, origRT0);
@@ -1271,10 +1276,14 @@ int main(int argc, char** argv) {
   }
   std::printf("d3d9-gamebryo-probe: CreateDevice OK\n");
 
-  // Drain the Cocoa event queue that accumulated during device setup;
-  // without this, SDL_PollEvent in the frame loop crashes on macOS 26.
-  // Call once only — multiple pumps corrupt the Metal/Vulkan surface state.
-  SDL_PumpEvents();
+  // Warm up the swapchain with one Clear+Present before running any probes.
+  // Without this, the Vulkan Presenter is not yet initialized; on macOS 26
+  // calling Present after 40+ D3D9 state-change functions crashes in
+  // wsi_unwrap_icd_surface / vkGetPhysicalDeviceSurfaceCapabilities2KHR.
+  // d3d9-clear does the same thing (Present on every frame from the start).
+  device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
+    D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+  device->Present(nullptr, nullptr, nullptr, nullptr);
 
   D3DCAPS9 caps = { };
   if (FAILED(device->GetDeviceCaps(&caps))) {
@@ -1317,13 +1326,14 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  if (!drawFixedFunctionTriangle(device)) {
-    device->Release();
-    d3d9->Release();
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 1;
-  }
+  // Helper: flush the back buffer after each draw-based probe group.
+  // On MoltenVK/macOS 26 the swapchain becomes "out of date" if more than
+  // one frame's worth of GPU commands pile up between Presents.
+  auto flushFrame = [&]() {
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
+      D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+    device->Present(nullptr, nullptr, nullptr, nullptr);
+  };
 
   if (!probeRenderStates(device)) {
     device->Release();
@@ -1333,6 +1343,15 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  if (!drawFixedFunctionTriangle(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+  flushFrame();
+
   if (!probeVertexBuffers(device)) {
     device->Release();
     d3d9->Release();
@@ -1340,6 +1359,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeLockFlags(device)) {
     device->Release();
@@ -1364,6 +1384,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeTexture(device)) {
     device->Release();
@@ -1372,6 +1393,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeDxtTexture(device)) {
     device->Release();
@@ -1388,6 +1410,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeRenderTarget(device)) {
     device->Release();
@@ -1396,6 +1419,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeVertexDeclaration(device)) {
     device->Release();
@@ -1404,6 +1428,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeMultipleRenderTargets(device)) {
     device->Release();
@@ -1412,6 +1437,7 @@ int main(int argc, char** argv) {
     SDL_Quit();
     return 1;
   }
+  flushFrame();
 
   if (!probeCubeTexture(device)) {
     device->Release();
@@ -1429,22 +1455,23 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // Non-fatal probes (may not work in headless CI or on all drivers)
-  logFrontBufferData(device, kWidth, kHeight);
+  // Timestamp query is non-fatal — runs before the present loop.
   logTimestampQuery(device);
 
   std::printf("d3d9-gamebryo-probe: presenting %d frame(s)\n", frameCount);
 
   for (int frame = 0; frame < frameCount; ++frame) {
+#if defined(D3D9_CLEAR_SDL3)
     SDL_Event event = { };
     while (SDL_PollEvent(&event)) {
-#if defined(D3D9_CLEAR_SDL3)
-      if (event.type == SDL_EVENT_QUIT)
-#else
-      if (event.type == SDL_QUIT)
-#endif
-        break;
+      if (event.type == SDL_EVENT_QUIT) break;
     }
+#else
+    SDL_Event event = { };
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) break;
+    }
+#endif
 
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
       D3DCOLOR_XRGB(48, 96, 48), 1.0f, 0);
@@ -1466,6 +1493,10 @@ int main(int argc, char** argv) {
       SDL_Quit();
       return 1;
     }
+
+    // GetFrontBufferData: run after the first Present when the swapchain is active.
+    if (frame == 0)
+      logFrontBufferData(device, kWidth, kHeight);
 
     // Run GPU query probes after the first Present so the command buffer is
     // guaranteed to have been flushed to the GPU.
