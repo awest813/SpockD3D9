@@ -48,7 +48,6 @@ still pending.
   Meson option, cross file, helper script, CI coverage) and for native profile
   validation (`tests/conf/test_dxvk_conf_profiles.py`).
 - **Native CI probe:** `d3d9-gamebryo-probe` (Track A / MoltenVK) exercises
-<<<<<<< HEAD
   Gamebryo-typical `CreateDevice` parameters; BCn/D24S8/A8L8 format queries;
   RT format availability (A8R8G8B8, R16F, R32F, A16B16G16R16F, A32B32G32R32F);
   display mode enumeration; MSAA checks; SM3 caps; state blocks; occlusion and
@@ -59,15 +58,6 @@ still pending.
   fixed-function DrawPrimitiveUP (SPIR-V → MSL); Present; Reset. See
   [TRACK_A.md](TRACK_A.md). Covers V1–V2 on the native path; DXSO SM2/SM3 on
   retail shaders, vertex declarations, exclusive fullscreen remain manual.
-=======
-  Gamebryo-typical `CreateDevice` parameters, BCn/D24S8 format queries, display
-  mode enumeration, MSAA checks, SM3 caps, fixed-function `DrawPrimitiveUP`
-  (SPIR-V → MSL), Present, and the full device-lost/`Reset` cycle
-  (`D3DPOOL_DEFAULT` resource blocks `Reset` → `TestCooperativeLevel` reports
-  `D3DERR_DEVICENOTRESET` → `Reset` succeeds after release) on macOS CI. See
-  [TRACK_A.md](TRACK_A.md). This covers V1–V2 on the native path only; DXSO
-  SM2/SM3 on retail shaders remains manual.
->>>>>>> origin/master
 - **Runtime game milestones:** Retail boot-to-menu (V3+) still unverified on real
   host/game runs. Treat the V1–V10 table below as the active tracker for manual progression.
 - **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
@@ -82,7 +72,6 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 
 ### Device lifecycle
 
-<<<<<<< HEAD
 - [x] `Direct3DCreate9` → `IDirect3D9` creation — CI probe
 - [x] `IDirect3D9::CreateDevice` with appropriate flags — CI probe
 - [x] `IDirect3DDevice9::TestCooperativeLevel` (focus loss / device lost) — CI probe + native code; retail run pending
@@ -107,32 +96,6 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 - [x] `DrawPrimitiveUP` / `DrawIndexedPrimitiveUP` (immediate-mode draws) — CI probe
 - [x] Scissor test — CI probe (SetScissorRect + D3DRS_SCISSORTESTENABLE)
 - [x] Viewport management — CI probe (SetViewport)
-=======
-- [ ] `Direct3DCreate9` → `IDirect3D9` creation
-- [ ] `IDirect3D9::CreateDevice` with appropriate flags
-- [x] `IDirect3DDevice9::TestCooperativeLevel` (focus loss / device lost) — CI: `d3d9-gamebryo-probe` validates `D3D_OK` → `D3DERR_DEVICENOTRESET` → `D3D_OK` across the reset cycle
-- [x] `IDirect3DDevice9::Reset` (resolution change, fullscreen toggle) — CI: `d3d9-gamebryo-probe` resizes the backbuffer and exercises the losable-resource reset cycle
-- [ ] Adapter enumeration (`GetAdapterCount`, `GetAdapterIdentifier`)
-- [ ] Display mode enumeration (`EnumAdapterModes`, `GetAdapterDisplayMode`)
-- [ ] `CheckDeviceFormat` for all formats Gamebryo queries
-- [ ] `CheckDeviceMultiSampleType` (Gamebryo supports MSAA)
-- [ ] `GetDeviceCaps` — verify SM3 caps, texture limits, render target caps
-
-### Rendering
-
-- [ ] Fixed-function vertex processing (Gamebryo uses FFP for some paths)
-- [ ] Vertex shaders (SM2.0 and SM3.0)
-- [ ] Pixel shaders (SM2.0 and SM3.0)
-- [ ] Multiple render targets (MRT) — Gamebryo deferred lighting
-- [ ] Alpha blending and alpha testing
-- [ ] Stencil operations (shadow volumes, effects)
-- [ ] Fog (vertex and table fog)
-- [ ] Texture stage states (fixed-function multi-texturing)
-- [x] `DrawPrimitive` / `DrawIndexedPrimitive` (main draw paths) — CI: `d3d9-gamebryo-probe` runs `DrawIndexedPrimitive` from `DEFAULT`-pool buffers
-- [x] `DrawPrimitiveUP` / `DrawIndexedPrimitiveUP` (immediate-mode draws) — CI: `d3d9-gamebryo-probe` runs `DrawPrimitiveUP`; `DrawIndexedPrimitiveUP` still manual
-- [ ] Scissor test
-- [ ] Viewport management
->>>>>>> origin/master
 
 ### Textures and formats
 
@@ -163,7 +126,6 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 
 ### State management
 
-<<<<<<< HEAD
 - [x] Render state block (`CreateStateBlock`, `BeginStateBlock`, `EndStateBlock`) — CI probe
 - [x] All render states Gamebryo uses — CI probe covers blend, alpha, stencil, fog, scissor, viewport; full coverage via upstream DXVK
 - [x] Sampler states (filtering, addressing, LOD bias, max anisotropy) — CI probe (MIN/MAG/MIP LINEAR, WRAP, MAXANISOTROPY=8)
@@ -183,27 +145,6 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 - [x] Occlusion queries (`D3DQUERYTYPE_OCCLUSION`) — CI probe (Issue/GetData round-trip)
 - [x] Event queries (`D3DQUERYTYPE_EVENT`) — CI probe (Issue/GetData round-trip)
 - [x] Timestamp queries — CI probe (D3DQUERYTYPE_TIMESTAMP + D3DQUERYTYPE_TIMESTAMPFREQ; logged, non-fatal)
-=======
-- [x] Render state block (`CreateStateBlock`, `BeginStateBlock`, `EndStateBlock`) — CI: `d3d9-gamebryo-probe` captures a `D3DSBT_ALL` block and verifies `Apply` restores render state; `BeginStateBlock`/`EndStateBlock` recording still manual
-- [ ] All render states Gamebryo uses (see upstream DXVK for coverage)
-- [ ] Sampler states (filtering, addressing, LOD bias, max anisotropy)
-- [ ] Texture stage states
-- [x] Stream source management — CI: `d3d9-gamebryo-probe` binds via `SetStreamSource` / `SetIndices`
-- [ ] Vertex declaration
-
-### Buffers
-
-- [x] Vertex buffers (MANAGED, DEFAULT, DYNAMIC pools) — CI: `d3d9-gamebryo-probe` creates a `DYNAMIC`/`DEFAULT` vertex buffer; MANAGED still manual
-- [x] Index buffers (16-bit and 32-bit) — CI: `d3d9-gamebryo-probe` draws from a 16-bit `DEFAULT` index buffer; 32-bit still manual
-- [x] `Lock` / `Unlock` with `DISCARD`, `NOOVERWRITE`, `READONLY` flags — CI: `d3d9-gamebryo-probe` uploads VB/IB via `Lock(D3DLOCK_DISCARD)`; NOOVERWRITE/READONLY still manual
-- [ ] Proper MANAGED pool → device-local upload
-
-### Queries
-
-- [x] Occlusion queries (`D3DQUERYTYPE_OCCLUSION`) — Gamebryo uses these — CI: `d3d9-gamebryo-probe` issues an occlusion query around a draw and reads the sample count
-- [x] Event queries (`D3DQUERYTYPE_EVENT`) — GPU fence / sync — CI: `d3d9-gamebryo-probe` issues and waits on an event query
-- [ ] Timestamp queries (if used)
->>>>>>> origin/master
 
 ---
 
