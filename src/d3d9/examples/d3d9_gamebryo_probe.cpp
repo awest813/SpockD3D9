@@ -344,6 +344,7 @@ namespace {
     return true;
   }
 
+<<<<<<< HEAD
   // --- Vertex / index buffer + DrawPrimitive / DrawIndexedPrimitive ---
 
   bool probeVertexBuffers(IDirect3DDevice9* device) {
@@ -1229,6 +1230,248 @@ namespace {
       std::printf("d3d9-gamebryo-probe: TimestampQuery stalled (0x%08lx)\n", hr);
   }
 
+=======
+  // Poll a query to completion, driving GPU progress with Present between
+  // attempts. Returns the final HRESULT (D3D_OK on success, S_FALSE if it
+  // never resolved within the bounded retry budget).
+  HRESULT waitForQueryData(IDirect3DDevice9* device, IDirect3DQuery9* query, void* data, DWORD size) {
+    HRESULT hr = S_FALSE;
+    for (int attempt = 0; attempt < 256 && hr == S_FALSE; ++attempt) {
+      hr = query->GetData(data, size, D3DGETDATA_FLUSH);
+      if (hr == S_FALSE)
+        device->Present(nullptr, nullptr, nullptr, nullptr);
+    }
+    return hr;
+  }
+
+  // DrawIndexedPrimitive from D3DPOOL_DEFAULT vertex/index buffers populated
+  // with Lock/Unlock(DISCARD) — the buffer upload + indexed draw path Gamebryo
+  // uses for nearly all geometry. Buffers are released before returning so the
+  // device stays resettable.
+  bool drawIndexedFromBuffers(IDirect3DDevice9* device) {
+    struct Vertex {
+      float x, y, z, rhw;
+      DWORD color;
+    };
+
+    const Vertex vertices[] = {
+      { 400.0f, 200.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(200, 200, 64) },
+      { 880.0f, 200.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(64, 200, 200) },
+      { 880.0f, 520.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(200, 64, 200) },
+      { 400.0f, 520.0f, 0.5f, 1.0f, D3DCOLOR_XRGB(200, 200, 200) },
+    };
+    const uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
+
+    IDirect3DVertexBuffer9* vbo = nullptr;
+    if (FAILED(device->CreateVertexBuffer(sizeof(vertices),
+        D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_XYZRHW | D3DFVF_DIFFUSE,
+        D3DPOOL_DEFAULT, &vbo, nullptr)) || !vbo) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateVertexBuffer (indexed draw) failed\n");
+      return false;
+    }
+
+    IDirect3DIndexBuffer9* ibo = nullptr;
+    if (FAILED(device->CreateIndexBuffer(sizeof(indices),
+        D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFMT_INDEX16,
+        D3DPOOL_DEFAULT, &ibo, nullptr)) || !ibo) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateIndexBuffer failed\n");
+      vbo->Release();
+      return false;
+    }
+
+    bool ok = false;
+    void* mapped = nullptr;
+    if (SUCCEEDED(vbo->Lock(0, sizeof(vertices), &mapped, D3DLOCK_DISCARD)) && mapped) {
+      std::memcpy(mapped, vertices, sizeof(vertices));
+      vbo->Unlock();
+
+      mapped = nullptr;
+      if (SUCCEEDED(ibo->Lock(0, sizeof(indices), &mapped, D3DLOCK_DISCARD)) && mapped) {
+        std::memcpy(mapped, indices, sizeof(indices));
+        ibo->Unlock();
+
+        device->SetRenderState(D3DRS_LIGHTING, FALSE);
+        device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+        device->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
+        device->SetStreamSource(0, vbo, 0, sizeof(Vertex));
+        device->SetIndices(ibo);
+
+        const HRESULT drawHr = device->DrawIndexedPrimitive(
+          D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+
+        if (SUCCEEDED(drawHr))
+          ok = true;
+        else
+          std::fprintf(stderr, "d3d9-gamebryo-probe: DrawIndexedPrimitive failed (0x%08lx)\n", drawHr);
+
+        device->SetIndices(nullptr);
+        device->SetStreamSource(0, nullptr, 0, 0);
+      }
+    }
+
+    ibo->Release();
+    vbo->Release();
+
+    if (ok)
+      std::printf("d3d9-gamebryo-probe: DrawIndexedPrimitive (DEFAULT VB/IB, Lock DISCARD) OK\n");
+    return ok;
+  }
+
+  // Occlusion query around a draw — Gamebryo uses these for visibility tests.
+  bool runOcclusionQuery(IDirect3DDevice9* device) {
+    IDirect3DQuery9* query = nullptr;
+    const HRESULT createHr = device->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
+    if (FAILED(createHr) || !query) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateQuery(OCCLUSION) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+
+    query->Issue(D3DISSUE_BEGIN);
+    const bool drew = drawFixedFunctionTriangle(device);
+    query->Issue(D3DISSUE_END);
+
+    DWORD samples = 0;
+    const HRESULT dataHr = waitForQueryData(device, query, &samples, sizeof(samples));
+    query->Release();
+
+    if (!drew)
+      return false;
+
+    if (dataHr != D3D_OK) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: occlusion query did not resolve (0x%08lx)\n", dataHr);
+      return false;
+    }
+
+    std::printf("d3d9-gamebryo-probe: occlusion query OK (%lu samples)\n", static_cast<unsigned long>(samples));
+    return true;
+  }
+
+  // Event (fence) query — Gamebryo uses these for CPU/GPU sync.
+  bool runEventQuery(IDirect3DDevice9* device) {
+    IDirect3DQuery9* query = nullptr;
+    const HRESULT createHr = device->CreateQuery(D3DQUERYTYPE_EVENT, &query);
+    if (FAILED(createHr) || !query) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateQuery(EVENT) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+
+    query->Issue(D3DISSUE_END);
+
+    BOOL signaled = FALSE;
+    const HRESULT dataHr = waitForQueryData(device, query, &signaled, sizeof(signaled));
+    query->Release();
+
+    if (dataHr != D3D_OK || !signaled) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: event query did not signal (0x%08lx)\n", dataHr);
+      return false;
+    }
+
+    std::printf("d3d9-gamebryo-probe: event query OK\n");
+    return true;
+  }
+
+  // Render state block capture/apply — Gamebryo uses state blocks to snapshot
+  // and restore render state. Create a D3DSBT_ALL block (captures current
+  // state), mutate the state, then Apply and confirm the captured value is
+  // restored. The block is released before returning so the device stays
+  // resettable (state blocks are losable resources).
+  bool runStateBlockCheck(IDirect3DDevice9* device) {
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+
+    IDirect3DStateBlock9* block = nullptr;
+    const HRESULT createHr = device->CreateStateBlock(D3DSBT_ALL, &block);
+    if (FAILED(createHr) || !block) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateStateBlock(D3DSBT_ALL) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+
+    const HRESULT applyHr = block->Apply();
+    block->Release();
+
+    if (FAILED(applyHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: state block Apply failed (0x%08lx)\n", applyHr);
+      return false;
+    }
+
+    DWORD fillMode = 0;
+    if (FAILED(device->GetRenderState(D3DRS_FILLMODE, &fillMode))) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: GetRenderState(FILLMODE) failed\n");
+      return false;
+    }
+
+    if (fillMode != D3DFILL_WIREFRAME) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: state block did not restore FILLMODE (got %lu)\n",
+        static_cast<unsigned long>(fillMode));
+      return false;
+    }
+
+    // Leave the device in the default fill mode for subsequent draws.
+    device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+    std::printf("d3d9-gamebryo-probe: state block capture/apply OK\n");
+    return true;
+  }
+
+  // Validate the device-lost / reset cycle Gamebryo drives on focus loss and
+  // resolution changes. A live D3DPOOL_DEFAULT resource must block Reset, which
+  // then reports D3DERR_DEVICENOTRESET through TestCooperativeLevel until the
+  // resource is released and Reset is retried. This mirrors the
+  // TestCooperativeLevel + Reset loop Fallout 3 runs when it regains focus.
+  bool exerciseResetCycle(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS presentParams) {
+    IDirect3DVertexBuffer9* defaultVbo = nullptr;
+    const HRESULT createHr = device->CreateVertexBuffer(
+      6 * sizeof(float) * 3,
+      D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY,
+      D3DFVF_XYZRHW | D3DFVF_DIFFUSE,
+      D3DPOOL_DEFAULT,
+      &defaultVbo,
+      nullptr);
+
+    if (FAILED(createHr) || !defaultVbo) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: CreateVertexBuffer (DEFAULT) failed (0x%08lx)\n", createHr);
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: CreateVertexBuffer (D3DPOOL_DEFAULT) OK\n");
+
+    // Reset must be rejected while the DEFAULT-pool buffer is still alive.
+    presentParams.BackBufferWidth  = 800;
+    presentParams.BackBufferHeight = 600;
+    const HRESULT blockedHr = device->Reset(&presentParams);
+    if (SUCCEEDED(blockedHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: Reset unexpectedly succeeded with a live D3DPOOL_DEFAULT resource\n");
+      defaultVbo->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: Reset correctly rejected with live default resource (0x%08lx)\n", blockedHr);
+
+    // TestCooperativeLevel should now report that the device needs a reset.
+    const HRESULT notResetHr = device->TestCooperativeLevel();
+    if (notResetHr != D3DERR_DEVICENOTRESET) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: expected D3DERR_DEVICENOTRESET, got 0x%08lx\n", notResetHr);
+      defaultVbo->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: TestCooperativeLevel reports D3DERR_DEVICENOTRESET\n");
+
+    // Release the losable resource and retry: Reset must now succeed.
+    defaultVbo->Release();
+    const HRESULT resetHr = device->Reset(&presentParams);
+    if (FAILED(resetHr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: Reset after releasing default resource failed (0x%08lx)\n", resetHr);
+      return false;
+    }
+
+    const HRESULT okHr = device->TestCooperativeLevel();
+    if (okHr != D3D_OK) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: TestCooperativeLevel not OK after reset (0x%08lx)\n", okHr);
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: device-lost reset cycle OK\n");
+    return true;
+  }
+
+>>>>>>> origin/master
 } // namespace
 
 int main(int argc, char** argv) {
@@ -1424,7 +1667,15 @@ int main(int argc, char** argv) {
   }
   std::printf("d3d9-gamebryo-probe: TestCooperativeLevel OK\n");
 
+<<<<<<< HEAD
   if (!probeStateBlock(device)) {
+=======
+  if (!drawFixedFunctionTriangle(device)
+   || !drawIndexedFromBuffers(device)
+   || !runStateBlockCheck(device)
+   || !runOcclusionQuery(device)
+   || !runEventQuery(device)) {
+>>>>>>> origin/master
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);
@@ -1645,6 +1896,14 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::printf("d3d9-gamebryo-probe: Reset OK\n");
+
+  if (!exerciseResetCycle(device, presentParams)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
 
   device->Release();
   d3d9->Release();
