@@ -18,7 +18,7 @@ D3D9 API  →  SPIR-V (DXSO + fixed-function GLSL)  →  Vulkan (DXVK)  →  Mol
 | WSI (SDL3 / SDL2 / GLFW) | **Done** | Fullscreen, EDID, occlusion |
 | Smoke tests | **Done** | `d3d9-clear`, `d3d9-gamebryo-probe` |
 | Retail game boot-to-menu | **Not started** | Needs external Wine-family host + PE `d3d9.dll` |
-| DXSO (SM2/SM3) on real titles | **Not started** | Probe covers FF path only today |
+| DXSO (SM2/SM3) on real titles | **Partial** | Probe draws with hand-assembled SM2.0 VS+PS (incl. unbound-sampler texld); retail SM3 shaders pending |
 
 ---
 

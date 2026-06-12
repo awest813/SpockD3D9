@@ -85,8 +85,8 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 ### Rendering
 
 - [x] Fixed-function vertex processing — CI probe (DrawPrimitiveUP + textured quad + VB draws)
-- [ ] Vertex shaders (SM2.0 and SM3.0) — pending retail DXSO
-- [ ] Pixel shaders (SM2.0 and SM3.0) — pending retail DXSO
+- [x] Vertex shaders (SM2.0) — CI probe (hand-assembled vs_2_0 → DXSO → SPIR-V → MSL draw); SM3.0 + retail shaders pending
+- [x] Pixel shaders (SM2.0) — CI probe (ps_2_0 solid + texld from unbound sampler); SM3.0 + retail shaders pending
 - [x] Multiple render targets (MRT) — CI probe (2× A8R8G8B8; non-fatal if NumSimultaneousRTs<2)
 - [x] Alpha blending and alpha testing — CI probe (render state set/restore)
 - [x] Stencil operations (shadow volumes, effects) — CI probe (state set/restore)

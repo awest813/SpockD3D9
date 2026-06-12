@@ -10,6 +10,8 @@
  *   - Lock flags: D3DLOCK_DISCARD, D3DLOCK_NOOVERWRITE, D3DLOCK_READONLY
  *   - DrawPrimitive, DrawIndexedPrimitive, DrawPrimitiveUP (fixed-function)
  *   - Vertex declaration (D3DVERTEXELEMENT9 / SetVertexDeclaration)
+ *   - SM2.0 programmable shaders (hand-assembled vs_2_0 + ps_2_0 DXSO,
+ *     incl. a texld from an intentionally unbound sampler)
  *   - Texture A8R8G8B8 (mips, lock/upload, sampler), DXT1 create
  *   - Sampler address modes: WRAP, CLAMP, MIRROR (BORDER logged, non-fatal)
  *   - Cube map (A8R8G8B8, lock/fill), volume texture (A8R8G8B8 16×16×4)
@@ -616,6 +618,110 @@ namespace {
     }
     std::printf("d3d9-gamebryo-probe: IndexBuffer (32-bit) + DrawIndexedPrimitive OK\n");
     return true;
+  }
+
+  // --- Programmable shaders (SM2.0, hand-assembled DXSO bytecode) ---
+
+  bool probeShadersSM2(IDirect3DDevice9* device) {
+    // vs_2_0: pass v0 through to oPos and oT0
+    static const DWORD vsCode[] = {
+      0xFFFE0200,                                       // vs_2_0
+      0x0200001F, 0x80000000, 0x900F0000,               // dcl_position v0
+      0x02000001, 0xC00F0000, 0x90E40000,               // mov oPos, v0
+      0x02000001, 0xE00F0000, 0x90E40000,               // mov oT0, v0
+      0x0000FFFF,                                       // end
+    };
+
+    // ps_2_0: solid colour from a def constant
+    static const DWORD psSolidCode[] = {
+      0xFFFF0200,                                       // ps_2_0
+      0x05000051, 0xA00F0000,                           // def c0, 1, 0, 0, 1
+        0x3F800000, 0x00000000, 0x00000000, 0x3F800000,
+      0x02000001, 0x800F0000, 0xA0E40000,               // mov r0, c0
+      0x02000001, 0x800F0800, 0x80E40000,               // mov oC0, r0
+      0x0000FFFF,                                       // end
+    };
+
+    // ps_2_0: sample s0 — intentionally drawn with NO texture bound, to
+    // exercise the unbound-resource (dummy descriptor) path on MoltenVK.
+    static const DWORD psTexCode[] = {
+      0xFFFF0200,                                       // ps_2_0
+      0x0200001F, 0x80000000, 0xB00F0000,               // dcl t0
+      0x0200001F, 0x90000000, 0xA00F0800,               // dcl_2d s0
+      0x03000042, 0x800F0000, 0xB0E40000, 0xA0E40800,   // texld r0, t0, s0
+      0x02000001, 0x800F0800, 0x80E40000,               // mov oC0, r0
+      0x0000FFFF,                                       // end
+    };
+
+    IDirect3DVertexShader9* vs = nullptr;
+    HRESULT hr = device->CreateVertexShader(vsCode, &vs);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: CreateVertexShader vs_2_0 failed (0x%08lx)\n", hr);
+      return false;
+    }
+
+    IDirect3DPixelShader9* psSolid = nullptr;
+    hr = device->CreatePixelShader(psSolidCode, &psSolid);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: CreatePixelShader ps_2_0 (solid) failed (0x%08lx)\n", hr);
+      vs->Release();
+      return false;
+    }
+
+    IDirect3DPixelShader9* psTex = nullptr;
+    hr = device->CreatePixelShader(psTexCode, &psTex);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: CreatePixelShader ps_2_0 (texld) failed (0x%08lx)\n", hr);
+      psSolid->Release();
+      vs->Release();
+      return false;
+    }
+
+    struct Vert { float x, y, z; };
+    const Vert tri[] = {
+      { 0.0f,  0.5f, 0.5f },
+      { 0.5f, -0.5f, 0.5f },
+      {-0.5f, -0.5f, 0.5f },
+    };
+
+    device->SetVertexShader(vs);
+    device->SetFVF(D3DFVF_XYZ);
+
+    device->SetPixelShader(psSolid);
+    hr = device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, tri, sizeof(Vert));
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: SM2 solid draw failed (0x%08lx)\n", hr);
+    } else {
+      std::printf("d3d9-gamebryo-probe: SM2 shader draw (VS+PS passthrough) OK\n");
+    }
+
+    bool ok = SUCCEEDED(hr);
+
+    if (ok) {
+      // Draw sampling an unbound texture slot
+      device->SetTexture(0, nullptr);
+      device->SetPixelShader(psTex);
+      hr = device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, tri, sizeof(Vert));
+      if (FAILED(hr)) {
+        std::fprintf(stderr,
+          "d3d9-gamebryo-probe: SM2 unbound-texture draw failed (0x%08lx)\n", hr);
+        ok = false;
+      } else {
+        std::printf("d3d9-gamebryo-probe: SM2 unbound-texture sample draw OK\n");
+      }
+    }
+
+    device->SetVertexShader(nullptr);
+    device->SetPixelShader(nullptr);
+
+    psTex->Release();
+    psSolid->Release();
+    vs->Release();
+    return ok;
   }
 
   // --- Texture creation, lock/upload, SetTexture ---
@@ -1422,6 +1528,14 @@ int main(int argc, char** argv) {
   flushFrame();
 
   if (!probeVertexDeclaration(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+
+  if (!probeShadersSM2(device)) {
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);
