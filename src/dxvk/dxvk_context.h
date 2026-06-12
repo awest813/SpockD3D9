@@ -1342,6 +1342,7 @@ namespace dxvk {
 
     Rc<DxvkCommandList>     m_cmd;
     Rc<DxvkBuffer>          m_zeroBuffer;
+    Rc<DxvkBuffer>          m_dummyVertexBuffer;
 
     Rc<DxvkBuffer>          m_scratchBuffer;
     VkDeviceSize            m_scratchOffset = 0u;
@@ -1880,6 +1881,8 @@ namespace dxvk {
             VkDeviceSize              size);
 
     void freeZeroBuffer();
+
+    DxvkResourceBufferInfo getDummyVertexBufferSlice();
 
     void resizeDescriptorArrays(
             uint32_t                  bindingCount);

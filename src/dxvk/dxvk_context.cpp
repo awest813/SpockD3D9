@@ -7609,10 +7609,20 @@ namespace dxvk {
         }
 
         m_cmd->track(m_state.vi.vertexBuffers[binding].buffer(), DxvkAccess::Read);
-      } else {
+      } else if (m_device->features().extRobustness2.nullDescriptor) {
         buffers[i] = VK_NULL_HANDLE;
         offsets[i] = 0;
         lengths[i] = 0;
+        strides[i] = 0;
+      } else {
+        // Binding VK_NULL_HANDLE requires the robustness2 nullDescriptor
+        // feature, which MoltenVK does not support. Bind a small zero
+        // buffer instead; robustBufferAccess keeps OOB fetches defined.
+        auto dummy = getDummyVertexBufferSlice();
+
+        buffers[i] = dummy.buffer;
+        offsets[i] = dummy.offset;
+        lengths[i] = dummy.size;
         strides[i] = 0;
       }
     }
@@ -9040,6 +9050,42 @@ namespace dxvk {
     // Delete zero buffer if it hasn't been actively used in a while
     if (m_zeroBuffer->getTrackId() + ZeroBufferLifetime < m_trackingId)
       m_zeroBuffer = nullptr;
+  }
+
+
+  DxvkResourceBufferInfo DxvkContext::getDummyVertexBufferSlice() {
+    if (unlikely(m_dummyVertexBuffer == nullptr)) {
+      DxvkBufferCreateInfo bufInfo;
+      bufInfo.size    = 1u << 16;
+      bufInfo.usage   = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+      bufInfo.stages  = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+                      | VK_PIPELINE_STAGE_TRANSFER_BIT;
+      bufInfo.access  = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
+                      | VK_ACCESS_TRANSFER_WRITE_BIT;
+      bufInfo.debugName = "Dummy vertex buffer";
+
+      m_dummyVertexBuffer = m_device->createBuffer(bufInfo,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+      auto slice = m_dummyVertexBuffer->getSliceInfo();
+
+      // Zero-init on the init command buffer (outside any render pass) so
+      // vertex fetches from unbound streams read well-defined data.
+      m_cmd->cmdFillBuffer(DxvkCmdBuffer::InitBuffer,
+        slice.buffer, slice.offset, slice.size, 0u);
+
+      VkMemoryBarrier2 barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+      barrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+      barrier.dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+      barrier.dstAccessMask = VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+
+      m_initBarriers.addMemoryBarrier(barrier);
+    }
+
+    m_cmd->track(m_dummyVertexBuffer, DxvkAccess::Read);
+    return m_dummyVertexBuffer->getSliceInfo();
   }
 
 

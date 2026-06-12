@@ -128,14 +128,14 @@ The table below captures Vulkan features that DXVK requires on other platforms b
 
 If you see `Skipping: Device does not support required feature 'shaderCullDistance'` in logs, your MoltenVK version is older than the one where SpockD3D9 demoted the requirement. Update to a build that includes the `dxvk_device_info.cpp` change or re-build from source.
 
-### macOS 26 (Tahoe) + MoltenVK 1.4.1 — two distinct blockers for rendering
+### macOS 26 (Tahoe) + MoltenVK 1.4.x — rendering bring-up (RESOLVED)
 
-Full hardware bring-up on macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1 isolated
-**two independent issues** that block real rendering (anything past `Clear`).
-A pure `Clear`+`Present` loop (`d3d9-clear-sdl2`) is rock-solid at 1/5/20/30/60
-frames; the blockers only appear once shaders or vertex data are involved.
+Full hardware bring-up on macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1 initially hit
+two issues blocking real rendering. **Both are now resolved**: the full
+`d3d9-gamebryo-probe-sdl2` (all draws, render-to-texture, MRT, 60 presented
+frames, `Reset`) passes with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`.
 
-#### Blocker 1 — 2048-entry sampler heap requires Metal argument buffers
+#### Issue 1 — 2048-entry sampler heap requires Metal argument buffers
 
 DXVK's global sampler descriptor set is sized at `DxvkSamplerPool::MaxSamplerCount`
 (2048, the Vulkan spec floor) and declared as a partially-bound, update-after-bind
@@ -157,51 +157,51 @@ with argument buffers **off** — but 16 is below D3D9's worst case (16 PS + 4 V
 sampler slots), so it is not a safe global fix. A correct fix needs a Metal-aware,
 per-stage sampler binding path rather than one global 2048 heap.
 
-#### Blocker 2 — MoltenVK leaves dynamic vertex buffers unbacked (null MTLBuffer)
+#### Issue 2 (RESOLVED) — null vertex-buffer bindings without `nullDescriptor`
 
-The hard blocker. Any draw that sources vertex data from a DXVK dynamic/upload
-buffer (`DrawPrimitiveUP`, `D3DUSAGE_DYNAMIC` VBs) crashes **deterministically** on
-the DXVK CS thread:
+Initially misdiagnosed as a MoltenVK buffer-backing bug; the root cause was in
+**SpockD3D9**. Any draw with an input-layout binding that had no vertex buffer
+bound crashed deterministically on the DXVK CS thread:
 
 ```
 EXC_BAD_ACCESS (KERN_INVALID_ADDRESS at 0x58)
-  MVKBuffer::getMTLBuffer()                      ← buffer has no backing MTLBuffer
+  MVKBuffer::getMTLBuffer()                      ← `this` is null: VkBuffer = VK_NULL_HANDLE
   MVKCmdBindVertexBuffers<2ul>::setContent
   vkCmdBindVertexBuffers2
   dxvk::DxvkContext::updateVertexBufferBindings()
-  dxvk::DxvkContext::commitGraphicsState<...>
-  dxvk::DxvkContext::drawGeneric<...>            ← DrawPrimitiveUP
-  dxvk::DxvkCsThread::threadFunc()
 ```
 
-This is conclusively a **MoltenVK-internal buffer-backing bug**, not a DXVK misuse —
-it reproduces with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` = 0, 1, and 2, with and
-without `MVK_CONFIG_USE_MTLHEAP=0`, and with or without
-`VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT` on the buffer. `getMTLBuffer()` returning
-a pointer faulting at offset 0x58 means MoltenVK never created (or lost) the underlying
-`MTLBuffer` for that allocation. The crash site is **deterministic** for a fixed binary
-(4/5 runs identical), confirming a logic bug in the driver, not a race.
+Upstream DXVK hard-requires the robustness2 `nullDescriptor` feature and freely
+binds `VK_NULL_HANDLE` for unbound vertex-buffer slots. MoltenVK does not
+advertise `nullDescriptor`, so SpockD3D9 demoted it to optional — but without a
+fallback, the null binds became invalid API usage, and MoltenVK dereferenced the
+null handle (fault at member offset 0x58). This explains why the crash was
+deterministic and identical on MoltenVK 1.3.0 and 1.4.1, across all
+argument-buffer tiers, MTLHeap, and BDA settings: it was never a driver bug.
 
-#### What passes regardless
+**Fix:** `DxvkContext::updateVertexBufferBindings()` now binds a small
+zero-initialised dummy vertex buffer (`getDummyVertexBufferSlice()`) for unbound
+slots when `nullDescriptor` is unavailable. Core `robustBufferAccess` keeps
+out-of-bounds fetches defined.
 
-All ~40 D3D9 API probes — device/format/caps queries, render-target & MRT creation,
-texture upload (incl. cube/volume), sampler-state and address-mode setup, state blocks,
-vertex declarations, render-to-texture + `GetRenderTargetData`, and `Clear`/`Present` —
-complete successfully. Only the two blockers above prevent drawing real geometry.
+#### Validated state on macOS 26 / Apple M1
 
-#### Bottom line for "all modern Macs"
+With `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`, the full
+`d3d9-gamebryo-probe-sdl2` passes (exit 0, repeatedly): all draw paths
+(DrawPrimitive / DrawIndexedPrimitive 16+32-bit / DrawPrimitiveUP), textures
+incl. cube/volume, render-to-texture + `GetRenderTargetData`, MRT, state blocks,
+vertex declarations, 60 presented frames, and device `Reset`.
 
-Both blockers are in MoltenVK 1.4.1 / Metal on macOS 26, not in SpockD3D9:
-- Blocker 1 is a Metal architectural limit (16 samplers/stage) vs. DXVK's global-heap
-  design; needs either argument buffers (which trip Blocker 2) or a Metal-specific
-  small-sampler binding path in DXVK.
-- Blocker 2 is a MoltenVK buffer-backing regression and must be fixed upstream.
+#### Known remaining gap — null *descriptor* writes for unbound shader resources
 
-**CI is unaffected:** macos-13 (Intel) and macos-14 (Apple Silicon) ship an older
-MoltenVK that does not exhibit Blocker 2, and `d3d9-clear` validates the present path
-there. To unblock macOS 26 / Apple Silicon: file Blocker 2 against
-KhronosGroup/MoltenVK with the stack above, or bundle/require a MoltenVK build newer
-than 1.4.1 once fixed. Minimal repro for both: `d3d9-gamebryo-probe-sdl2`.
+The legacy descriptor-update path still writes `VK_NULL_HANDLE` image views /
+samplers / buffers for **unbound shader resources**
+(`dxvk_context.cpp`, `updateResourceBindings`), which also requires
+`nullDescriptor`. The CI probe always binds its resources, so this does not
+trigger there — but retail games (Fallout 3 included) routinely draw with
+unbound texture stages. Expect this to need the same dummy-resource treatment
+(dummy 2D/cube image views, dummy sampler, dummy uniform/texel buffer) before
+retail content is stable. This is the next known work item for macOS 26.
 
 ---
 
