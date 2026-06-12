@@ -407,6 +407,14 @@ inline DWORD WaitForMultipleObjectsEx(
       return WAIT_FAILED;
   }
 
+  // Reject duplicate handles — two handles pointing to the same underlying
+  // object share the same mutex pointer, so the combined-lock path would
+  // attempt to lock the same std::mutex twice from one thread (UB/deadlock).
+  for (DWORD i = 0; i < nCount; ++i)
+    for (DWORD j = i + 1; j < nCount; ++j)
+      if (headers[i] == headers[j])
+        return WAIT_FAILED;
+
   std::vector<DWORD> order(nCount);
   for (DWORD i = 0; i < nCount; ++i)
     order[i] = i;
@@ -418,47 +426,57 @@ inline DWORD WaitForMultipleObjectsEx(
     ? std::chrono::steady_clock::time_point::max()
     : std::chrono::steady_clock::now() + std::chrono::milliseconds(dwMilliseconds);
 
+  // Short sleep used when we can only subscribe to one CV but need to detect
+  // signals on other handles (wait-any) or recover from missed notifications
+  // (wait-all).  1 ms keeps CPU overhead low while bounding the worst-case
+  // extra latency to a single scheduler tick.
+  constexpr auto kPollSlice = std::chrono::milliseconds(1);
+
   for (;;) {
     if (bWaitAll) {
+      // Lock all handles in pointer-sorted order to eliminate TOCTOU between
+      // the readiness check and the acquire.  Holding all locks means
+      // acquireNativeHandleLocked cannot fail after a successful ready check,
+      // so no partial-acquire rollback is needed.
+      std::vector<std::unique_lock<std::mutex>> locks;
+      locks.reserve(nCount);
+      for (DWORD idx : order)
+        locks.emplace_back(*detail::nativeHandleMutex(headers[idx]));
+
       bool allReady = true;
+      DWORD wakeOn  = 0;
       for (DWORD i = 0; i < nCount; ++i) {
-        std::lock_guard<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
         if (!detail::nativeHandleReadyLocked(headers[i])) {
           allReady = false;
+          wakeOn   = i;
           break;
         }
       }
 
       if (allReady) {
-        std::vector<std::unique_lock<std::mutex>> locks;
-        locks.reserve(nCount);
-        for (DWORD idx : order)
-          locks.emplace_back(*detail::nativeHandleMutex(headers[idx]));
-
-        for (DWORD i = 0; i < nCount; ++i) {
-          if (!detail::acquireNativeHandleLocked(headers[i]))
-            return WAIT_FAILED;
-        }
+        for (DWORD i = 0; i < nCount; ++i)
+          detail::acquireNativeHandleLocked(headers[i]);
         return WAIT_OBJECT_0;
       }
+
+      // Release all locks before waiting (cannot hold them across cv::wait
+      // for a different handle's mutex without risking deadlock on re-entry).
+      locks.clear();
 
       if (std::chrono::steady_clock::now() >= deadline)
         return WAIT_TIMEOUT;
 
-      DWORD wakeOn = 0;
-      for (DWORD i = 0; i < nCount; ++i) {
-        std::lock_guard<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
-        if (!detail::nativeHandleReadyLocked(headers[i])) {
-          wakeOn = i;
-          break;
-        }
-      }
-
+      // Sleep on the first not-ready handle.  Use a bounded slice so we
+      // re-scan if a signal arrives on a different handle's CV.
+      const auto sliceDeadline = (deadline == std::chrono::steady_clock::time_point::max())
+        ? std::chrono::steady_clock::now() + kPollSlice
+        : std::min(deadline, std::chrono::steady_clock::now() + kPollSlice);
       std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[wakeOn]));
-      detail::waitNativeHandleLocked(headers[wakeOn], lock, deadline);
+      detail::waitNativeHandleLocked(headers[wakeOn], lock, sliceDeadline);
       continue;
     }
 
+    // Wait-any: check all handles under individual locks.
     for (DWORD i = 0; i < nCount; ++i) {
       std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[i]));
       if (detail::nativeHandleReadyLocked(headers[i])) {
@@ -471,8 +489,13 @@ inline DWORD WaitForMultipleObjectsEx(
     if (std::chrono::steady_clock::now() >= deadline)
       return WAIT_TIMEOUT;
 
+    // Sleep on order[0]'s CV.  Use a bounded slice so signals on other
+    // handles' CVs are noticed on the next scan iteration.
+    const auto sliceDeadline = (deadline == std::chrono::steady_clock::time_point::max())
+      ? std::chrono::steady_clock::now() + kPollSlice
+      : std::min(deadline, std::chrono::steady_clock::now() + kPollSlice);
     std::unique_lock<std::mutex> lock(*detail::nativeHandleMutex(headers[order[0]]));
-    detail::waitNativeHandleLocked(headers[order[0]], lock, deadline);
+    detail::waitNativeHandleLocked(headers[order[0]], lock, sliceDeadline);
   }
 }
 

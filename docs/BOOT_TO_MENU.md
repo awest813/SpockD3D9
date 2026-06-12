@@ -41,10 +41,20 @@ This copies `d3d9.dll`, `dxvk.conf` (from `tools/fallout3/fallout3.dxvk.conf`), 
 ### 3. Launch
 
 ```bash
+# Retail Steam build (Steam installed in the prefix and logged in):
+./scripts/launch-fallout3-host.sh --game-dir "$FALLOUT3_DIR" --steam
+
+# DRM-free copy / direct executable:
 ./scripts/launch-fallout3-host.sh --game-dir "$FALLOUT3_DIR"
 ```
 
-Or source the generated env and start the game your host normally uses (Steam in prefix, `wine Fallout3.exe`, etc.).
+The Steam build carries DRM and loads Steam's own D3D9 overlay, so prefer
+`--steam` for the retail target. Steam App IDs: **22370** = Fallout 3 GOTY
+(default), **22300** = Fallout 3 (original). Add `--no-overlay` to disable
+Steam's `gameoverlayrenderer` D3D9 hook for clean first-boot diagnostics.
+
+Or source the generated env and start the game your host normally uses
+(`wine steam.exe -applaunch 22370`, `wine Fallout3.exe`, etc.).
 
 ### 4. Check logs
 
@@ -105,6 +115,10 @@ export DYLD_LIBRARY_PATH="$(brew --prefix molten-vk)/lib:$DYLD_LIBRARY_PATH"
 | Black screen after device created | Shader compile failure — enable `dxvk.enableShaderCache = True`; retry second launch |
 | `Device lost` loop on focus | Profile has `d3d9.deviceLossOnFocusLoss = False` (default in `fallout3.dxvk.conf`) |
 | Instant exit, no DXVK line | Wrong DLL arch (need x86_64 PE); verify with `file d3d9.dll` |
+| Game closes immediately, relaunches | Steam DRM on a direct-exe launch — use `--steam` instead of running `Fallout3.exe` |
+| No `d3d9.log` after `--steam` | Steam launches detached; confirm `DXVK_LOG_PATH` points at the game dir (set by `prepare-fallout3-host.sh`) |
+| Crash/black screen only with overlay | Steam overlay's D3D9 hook conflicts — retry with `--no-overlay` to isolate |
+| `--steam` does nothing | Steam not running/logged in in the prefix, or wrong `--appid` (22370 GOTY / 22300 base) |
 | Works on Windows DXVK, not Spock | File issue with macOS-specific caps/format — use macOS bug template |
 
 ---

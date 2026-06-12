@@ -144,4 +144,16 @@ if platform != 'windows'
       install             : true,
     )
   endif
+
+  # SDL2 fallback probe — built whenever both WSI libs are present.
+  # Used on macOS 26+ where MoltenVK has a PAC incompatibility with SDL3's
+  # Vulkan surface creation path.
+  if lib_sdl2.found() and lib_sdl3.found()
+    executable('d3d9-gamebryo-probe-sdl2',
+      'examples/d3d9_gamebryo_probe.cpp',
+      dependencies        : [ d3d9_dep, lib_sdl2 ],
+      include_directories : dxvk_include_path,
+      install             : true,
+    )
+  endif
 endif

@@ -22,16 +22,22 @@ but cannot be loaded directly by an unmodified Windows game.
 
 ## Shipped profiles
 
-| Title | Executable | Profile |
-|-------|------------|---------|
-| Fallout 3 | `Fallout3.exe` | `tools/fallout3/fallout3.dxvk.conf` |
-| Fallout: New Vegas | `FalloutNV.exe` | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
-| Dragon Age: Origins | `daorigins.exe` | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
-| Galactic Civilizations II | `GC2*.exe` | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
+| Title | Executable | Steam App ID | Profile |
+|-------|------------|--------------|---------|
+| Fallout 3 | `Fallout3.exe` | 22300 (base) / 22370 (GOTY) | `tools/fallout3/fallout3.dxvk.conf` |
+| Fallout: New Vegas | `FalloutNV.exe` | 22380 (base) / 22490 (Ultimate) | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
+| Dragon Age: Origins | `daorigins.exe` | 47810 | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
+| Galactic Civilizations II | `GC2*.exe` | 3590 (Ultimate) | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
 
 The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
+
+All four are Steam titles, so the hosted launch path uses Steam to satisfy DRM
+and the overlay. `scripts/launch-fallout3-host.sh --steam --appid <id>` works
+for any of them once the matching profile is installed as `dxvk.conf` in the
+game directory (the script name is Fallout 3-centric but the launch mechanism
+is title-agnostic).
 
 **Built-in profiles (auto-applied):** Fallout 3, Dragon Age: Origins, and
 Galactic Civilizations II also have compiled-in profiles in

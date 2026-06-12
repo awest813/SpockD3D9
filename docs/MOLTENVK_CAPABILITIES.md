@@ -112,6 +112,103 @@ MoltenVK version: `brew info molten-vk` or check the loader path printed in DXVK
 
 ---
 
+## Vulkan feature gaps on macOS
+
+The table below captures Vulkan features that DXVK requires on other platforms but are absent or unreliable on some macOS + MoltenVK configurations.
+
+| Feature | macOS status | SpockD3D9 handling |
+|---------|-------------|-------------------|
+| `shaderCullDistance` | Not advertised by MoltenVK 1.4.x on macOS 26 (Tahoe) / Apple Silicon | Demoted to optional. D3D9 DXSO shaders do not use cull distances; no functional impact for D3D9. D3D10/11 DXBC shaders using `gl_CullDistance[]` may fail to compile. |
+| `VK_EXT_depth_clip_enable` | Not exposed by MoltenVK 1.4.x on macOS 26 (Tahoe) | Demoted to optional. D3D9 always requests depth-clip-enabled (hardware default on Metal), so the `VkPipelineRasterizationDepthClipStateCreateInfoEXT` struct is simply omitted when the extension is absent. D3D10/11 "depth clip off" paths would be broken. Pipeline struct guard also added in `dxvk_shader.cpp`. |
+| `VK_EXT_robustness2` features | `robustBufferAccess2` and `nullDescriptor` not advertised on macOS 26 | Both demoted to optional. D3D9 code already guards `robustBufferAccess2` use; `m_nullDescriptors` is zero-initialised as a safe fallback. |
+| Swapchain / `vkCreateMetalSurfaceEXT` | On macOS 26 + MoltenVK 1.4.1, `vkGetPhysicalDeviceSurfaceCapabilities2KHR` crashes inside `wsi_unwrap_icd_surface` when SDL2's Vulkan surface is used after `SDL_PumpEvents()` | Workaround not yet found. `d3d9-gamebryo-probe-sdl2` runs all D3D9 API probes successfully; the Present/swapchain step crashes due to this MoltenVK bug. CI targets (macos-13, macos-14) are unaffected. |
+| SDL3 `vkGetInstanceProcAddr` | On macOS 26 + MoltenVK 1.4.1, Cocoa_Vulkan_CreateSurface crashes in `MVKInstance::getEntryPoint` with a PAC authentication failure | SDL2 path used as fallback via `d3d9-gamebryo-probe-sdl2`. |
+| `shaderClipDistance` | Supported | Required — D3D9 SetClipPlane maps to this. |
+| `samplerAnisotropy` | Supported | Required. |
+
+If you see `Skipping: Device does not support required feature 'shaderCullDistance'` in logs, your MoltenVK version is older than the one where SpockD3D9 demoted the requirement. Update to a build that includes the `dxvk_device_info.cpp` change or re-build from source.
+
+### macOS 26 (Tahoe) + MoltenVK 1.4.x — rendering bring-up (RESOLVED)
+
+Full hardware bring-up on macOS 26.5.1 / Apple M1 / MoltenVK 1.4.1 initially hit
+two issues blocking real rendering. **Both are now resolved**: the full
+`d3d9-gamebryo-probe-sdl2` (all draws, render-to-texture, MRT, 60 presented
+frames, `Reset`) passes with `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`.
+
+#### Issue 1 — 2048-entry sampler heap requires Metal argument buffers
+
+DXVK's global sampler descriptor set is sized at `DxvkSamplerPool::MaxSamplerCount`
+(2048, the Vulkan spec floor) and declared as a partially-bound, update-after-bind
+sampler array. The built-in blit/meta/HUD shaders consume it. Metal's non-argument-buffer
+binding model caps inline samplers at **16 per stage**, so MoltenVK can only express
+the 2048-element array via argument buffers:
+
+```
+MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0:
+  [mvk-error] Shader library compile failed:
+  cannot reserve 'sampler' resource locations at index 0
+  fragment ... array<sampler, 2048> s_samplers [[sampler(0)]] ...
+  → "Failed to create built-in graphics pipeline" (present blitter never compiles)
+```
+
+Setting `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2` makes the present shader compile.
+Experimentally lowering `MaxSamplerCount` to 16 also lets the blit shader compile
+with argument buffers **off** — but 16 is below D3D9's worst case (16 PS + 4 VS = 20
+sampler slots), so it is not a safe global fix. A correct fix needs a Metal-aware,
+per-stage sampler binding path rather than one global 2048 heap.
+
+#### Issue 2 (RESOLVED) — null vertex-buffer bindings without `nullDescriptor`
+
+Initially misdiagnosed as a MoltenVK buffer-backing bug; the root cause was in
+**SpockD3D9**. Any draw with an input-layout binding that had no vertex buffer
+bound crashed deterministically on the DXVK CS thread:
+
+```
+EXC_BAD_ACCESS (KERN_INVALID_ADDRESS at 0x58)
+  MVKBuffer::getMTLBuffer()                      ← `this` is null: VkBuffer = VK_NULL_HANDLE
+  MVKCmdBindVertexBuffers<2ul>::setContent
+  vkCmdBindVertexBuffers2
+  dxvk::DxvkContext::updateVertexBufferBindings()
+```
+
+Upstream DXVK hard-requires the robustness2 `nullDescriptor` feature and freely
+binds `VK_NULL_HANDLE` for unbound vertex-buffer slots. MoltenVK does not
+advertise `nullDescriptor`, so SpockD3D9 demoted it to optional — but without a
+fallback, the null binds became invalid API usage, and MoltenVK dereferenced the
+null handle (fault at member offset 0x58). This explains why the crash was
+deterministic and identical on MoltenVK 1.3.0 and 1.4.1, across all
+argument-buffer tiers, MTLHeap, and BDA settings: it was never a driver bug.
+
+**Fix:** `DxvkContext::updateVertexBufferBindings()` now binds a small
+zero-initialised dummy vertex buffer (`getDummyVertexBufferSlice()`) for unbound
+slots when `nullDescriptor` is unavailable. Core `robustBufferAccess` keeps
+out-of-bounds fetches defined.
+
+#### Validated state on macOS 26 / Apple M1
+
+With `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`, the full
+`d3d9-gamebryo-probe-sdl2` passes (exit 0, repeatedly): all draw paths
+(DrawPrimitive / DrawIndexedPrimitive 16+32-bit / DrawPrimitiveUP), textures
+incl. cube/volume, render-to-texture + `GetRenderTargetData`, MRT, state blocks,
+vertex declarations, 60 presented frames, and device `Reset`.
+
+#### Unbound shader resources — dummy descriptor fallback
+
+The legacy descriptor-update path (`dxvk_context.cpp`,
+`updateResourceBindings`) writes `VK_NULL_HANDLE` image views / buffers for
+**unbound shader resources**, which also requires `nullDescriptor`. Retail
+games (Fallout 3 included) routinely draw with unbound texture stages, so on
+devices without the feature SpockD3D9 now substitutes lazily-created dummy
+resources instead (`DxvkContext::ensureDummyDescriptorResources`): a 64 KiB
+zeroed buffer (uniform/storage/texel, with an `R32_UINT` view) and 1×1 zeroed
+images in `VK_IMAGE_LAYOUT_GENERAL` covering 2D/cube (six-layer
+cube-compatible) and 3D view types, for both sampled and storage descriptors.
+Unbound fetches read zero rather than crashing. The CI probe binds all its
+resources, so this path is regression-tested for inertness only; first real
+exercise will come from retail content.
+
+---
+
 ## References
 
 - [MoltenVK supported Vulkan features](https://github.com/KhronosGroup/MoltenVK#supported-vulkan-features)

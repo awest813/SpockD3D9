@@ -78,12 +78,34 @@ project does not commit to it; see the decision record for why.
    export DYLD_LIBRARY_PATH="$(brew --prefix molten-vk)/lib:$DYLD_LIBRARY_PATH"
    ```
 
-5. **Launch** Fallout 3 through Steam (or `Fallout3.exe` directly) under the
-   host. For first-boot diagnostics, raise the SpockD3D9 log level:
+5. **Launch** Fallout 3 under the host. For first-boot diagnostics, raise the
+   SpockD3D9 log level:
 
    ```bash
    export DXVK_LOG_LEVEL=info   # use 'debug' for deep traces
    ```
+
+   **Direct vs Steam launch.** The retail target is the *Steam* build, which
+   carries Steam DRM and loads Steam's own D3D9 overlay
+   (`gameoverlayrenderer.dll`). Running `Fallout3.exe` directly often trips the
+   DRM or silently relaunches through Steam, so use the Steam path for the real
+   game and reserve direct-exe launch for DRM-free copies:
+
+   ```bash
+   # Retail Steam build (Steam must be installed in the prefix and logged in):
+   ./scripts/launch-fallout3-host.sh --game-dir "/path/to/Fallout 3" --steam
+
+   # Fallout 3 (original) is appid 22300; GOTY (default) is 22370:
+   ./scripts/launch-fallout3-host.sh --game-dir "$GAME_DIR" --steam --appid 22300
+
+   # Clean D3D9 diagnostics with the Steam overlay's own hook disabled:
+   ./scripts/launch-fallout3-host.sh --game-dir "$GAME_DIR" --steam --no-overlay
+   ```
+
+   Because Steam launches the game detached, its stdout is not captured;
+   SpockD3D9 writes `d3d9.log` into the game directory via `DXVK_LOG_PATH`
+   (set automatically by `prepare-fallout3-host.sh`). Check it with
+   `./scripts/check-boot-logs.sh "<game dir>/d3d9.log"`.
 
 ## Boot to menu (V3)
 

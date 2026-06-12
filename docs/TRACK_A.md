@@ -18,7 +18,7 @@ D3D9 API  →  SPIR-V (DXSO + fixed-function GLSL)  →  Vulkan (DXVK)  →  Mol
 | WSI (SDL3 / SDL2 / GLFW) | **Done** | Fullscreen, EDID, occlusion |
 | Smoke tests | **Done** | `d3d9-clear`, `d3d9-gamebryo-probe` |
 | Retail game boot-to-menu | **Not started** | Needs external Wine-family host + PE `d3d9.dll` |
-| DXSO (SM2/SM3) on real titles | **Not started** | Probe covers FF path only today |
+| DXSO (SM2/SM3) on real titles | **Partial** | Probe draws with hand-assembled SM2.0 VS+PS (incl. unbound-sampler texld); retail SM3 shaders pending |
 
 ---
 
@@ -36,11 +36,22 @@ Run locally:
 
 | Check | Milestone F mapping |
 |-------|---------------------|
-| BCn formats (DXT1/3/5) | Texture format support |
+| BCn formats (DXT1/3/5), A8R8G8B8, L8, A8L8 | Texture format support |
 | D24S8 / D16 depth | Depth formats |
-| `GetAdapterDisplayMode` | Display enumeration |
+| RT format availability logged (A8R8G8B8, X8R8G8B8, R16F, R32F, A16B16G16R16F, A32B32G32R32F) | HDR / deferred lighting |
+| `GetAdapterDisplayMode` + `EnumAdapterModes` | Display enumeration |
 | `CheckDeviceMultiSampleType` (2×/4×, logged) | MSAA query |
 | SM3 `GetDeviceCaps` | Shader model |
+| `CreateStateBlock`, `BeginStateBlock`/`EndStateBlock`, `Apply` | Render state management |
+| `D3DQUERYTYPE_OCCLUSION` (Issue/GetData) | Occlusion queries (Gamebryo visibility culling) |
+| `D3DQUERYTYPE_EVENT` (Issue/GetData) | GPU fence / frame sync |
+| Viewport, scissor, alpha blend, alpha test, stencil, fog | Core render states |
+| Vertex buffers (MANAGED + DYNAMIC, Lock/fill) + `DrawPrimitive` | Buffer management (main game draw path) |
+| Lock flags: `D3DLOCK_DISCARD`, `D3DLOCK_NOOVERWRITE` (DYNAMIC), `D3DLOCK_READONLY` (MANAGED) | Buffer lock contract |
+| 16-bit + 32-bit index buffers + `DrawIndexedPrimitive` | Indexed geometry |
+| Texture A8R8G8B8 (mips, lock/upload, sampler states) + DXT1 create | Texture pipeline |
+| Sampler address modes: CLAMP, MIRROR (BORDER non-fatal) | Texture wrapping/edge behavior |
+| Render-to-texture (A8R8G8B8 RT + `GetRenderTargetData`) | Shadow maps / deferred |
 | `DrawPrimitiveUP` (fixed-function) | FF → SPIR-V → MSL pipeline |
 | `DrawIndexedPrimitive` from `DEFAULT` VB/IB (`Lock` DISCARD) | Buffer upload + indexed draw |
 | Occlusion + event (`D3DQUERYTYPE_OCCLUSION`/`EVENT`) queries | GPU visibility + fence/sync |

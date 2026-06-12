@@ -1342,6 +1342,21 @@ namespace dxvk {
 
     Rc<DxvkCommandList>     m_cmd;
     Rc<DxvkBuffer>          m_zeroBuffer;
+    Rc<DxvkBuffer>          m_dummyVertexBuffer;
+
+    // Dummy resources substituted for unbound shader bindings on devices
+    // without the robustness2 nullDescriptor feature (e.g. MoltenVK).
+    struct {
+      Rc<DxvkBuffer>     buffer;
+      Rc<DxvkBufferView> bufferView;
+      Rc<DxvkImage>      image2D;
+      Rc<DxvkImage>      image3D;
+      Rc<DxvkImageView>  sampled2D;
+      Rc<DxvkImageView>  sampledCube;
+      Rc<DxvkImageView>  sampled3D;
+      Rc<DxvkImageView>  storage2D;
+      Rc<DxvkImageView>  storage3D;
+    } m_dummyDescriptors;
 
     Rc<DxvkBuffer>          m_scratchBuffer;
     VkDeviceSize            m_scratchOffset = 0u;
@@ -1880,6 +1895,18 @@ namespace dxvk {
             VkDeviceSize              size);
 
     void freeZeroBuffer();
+
+    DxvkResourceBufferInfo getDummyVertexBufferSlice();
+
+    void ensureDummyDescriptorResources();
+
+    DxvkResourceBufferInfo getDummyBufferInfo();
+
+    const DxvkDescriptor* getDummyBufferViewDescriptor(bool raw);
+
+    const DxvkDescriptor* getDummyImageDescriptor(
+            VkImageViewType           viewType,
+            bool                      storage);
 
     void resizeDescriptorArrays(
             uint32_t                  bindingCount);

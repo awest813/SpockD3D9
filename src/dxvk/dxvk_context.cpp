@@ -6901,6 +6901,10 @@ namespace dxvk {
       std::array<VkDescriptorSet, DxvkDescriptorSets::SetCount> sets = { };
       m_descriptorPool->alloc(m_trackingId, pipelineLayout, dirtySetMask, sets.data());
 
+      // Without robustness2 nullDescriptor (e.g. MoltenVK), writing
+      // VK_NULL_HANDLE resources is invalid; substitute dummies instead.
+      const bool hasNullDescriptor = m_device->features().extRobustness2.nullDescriptor;
+
       uint32_t descriptorCount = 0;
 
       for (auto setIndex : bit::BitMask(dirtySetMask)) {
@@ -6929,10 +6933,15 @@ namespace dxvk {
               descriptorInfo.buffer.range = bufferInfo.size;
 
               trackUniformBufferBinding<TrackBindings>(binding, slice);
-            } else {
+            } else if (hasNullDescriptor) {
               descriptorInfo.buffer.buffer = VK_NULL_HANDLE;
               descriptorInfo.buffer.offset = 0;
               descriptorInfo.buffer.range = VK_WHOLE_SIZE;
+            } else {
+              auto dummy = getDummyBufferInfo();
+              descriptorInfo.buffer.buffer = dummy.buffer;
+              descriptorInfo.buffer.offset = dummy.offset;
+              descriptorInfo.buffer.range = dummy.size;
             }
           } else {
             switch (binding.getDescriptorType()) {
@@ -6953,15 +6962,19 @@ namespace dxvk {
                     descriptorInfo = view->getDescriptor(binding.getViewType())->legacy;
 
                     m_cmd->track(view->image(), DxvkAccess::Read);
-                  } else {
+                  } else if (hasNullDescriptor) {
                     descriptorInfo.image.sampler = VK_NULL_HANDLE;
                     descriptorInfo.image.imageView = VK_NULL_HANDLE;
                     descriptorInfo.image.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                  } else {
+                    descriptorInfo = getDummyImageDescriptor(binding.getViewType(), false)->legacy;
                   }
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.image.sampler = VK_NULL_HANDLE;
                   descriptorInfo.image.imageView = VK_NULL_HANDLE;
                   descriptorInfo.image.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                } else {
+                  descriptorInfo = getDummyImageDescriptor(binding.getViewType(), false)->legacy;
                 }
               } break;
 
@@ -6976,10 +6989,12 @@ namespace dxvk {
                   descriptorInfo = descriptor->legacy;
 
                   trackImageViewBinding<TrackBindings, true>(binding, *res.imageView);
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.image.sampler = VK_NULL_HANDLE;
                   descriptorInfo.image.imageView = VK_NULL_HANDLE;
                   descriptorInfo.image.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                } else {
+                  descriptorInfo = getDummyImageDescriptor(binding.getViewType(), true)->legacy;
                 }
               } break;
 
@@ -6994,8 +7009,10 @@ namespace dxvk {
                   descriptorInfo = descriptor->legacy;
 
                   trackBufferViewBinding<TrackBindings, false>(binding, *res.bufferView);
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.bufferView = VK_NULL_HANDLE;
+                } else {
+                  descriptorInfo = getDummyBufferViewDescriptor(false)->legacy;
                 }
               } break;
 
@@ -7010,8 +7027,10 @@ namespace dxvk {
                   descriptorInfo = descriptor->legacy;
 
                   trackBufferViewBinding<TrackBindings, true>(binding, *res.bufferView);
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.bufferView = VK_NULL_HANDLE;
+                } else {
+                  descriptorInfo = getDummyBufferViewDescriptor(false)->legacy;
                 }
               } break;
 
@@ -7026,10 +7045,15 @@ namespace dxvk {
                   descriptorInfo = descriptor->legacy;
 
                   trackBufferViewBinding<TrackBindings, false>(binding, *res.bufferView);
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.buffer.buffer = VK_NULL_HANDLE;
                   descriptorInfo.buffer.offset = 0;
                   descriptorInfo.buffer.range = VK_WHOLE_SIZE;
+                } else {
+                  auto dummy = getDummyBufferInfo();
+                  descriptorInfo.buffer.buffer = dummy.buffer;
+                  descriptorInfo.buffer.offset = dummy.offset;
+                  descriptorInfo.buffer.range = dummy.size;
                 }
               } break;
 
@@ -7044,10 +7068,15 @@ namespace dxvk {
                   descriptorInfo = descriptor->legacy;
 
                   trackBufferViewBinding<TrackBindings, true>(binding, *res.bufferView);
-                } else {
+                } else if (hasNullDescriptor) {
                   descriptorInfo.buffer.buffer = VK_NULL_HANDLE;
                   descriptorInfo.buffer.offset = 0;
                   descriptorInfo.buffer.range = VK_WHOLE_SIZE;
+                } else {
+                  auto dummy = getDummyBufferInfo();
+                  descriptorInfo.buffer.buffer = dummy.buffer;
+                  descriptorInfo.buffer.offset = dummy.offset;
+                  descriptorInfo.buffer.range = dummy.size;
                 }
               } break;
 
@@ -7609,10 +7638,20 @@ namespace dxvk {
         }
 
         m_cmd->track(m_state.vi.vertexBuffers[binding].buffer(), DxvkAccess::Read);
-      } else {
+      } else if (m_device->features().extRobustness2.nullDescriptor) {
         buffers[i] = VK_NULL_HANDLE;
         offsets[i] = 0;
         lengths[i] = 0;
+        strides[i] = 0;
+      } else {
+        // Binding VK_NULL_HANDLE requires the robustness2 nullDescriptor
+        // feature, which MoltenVK does not support. Bind a small zero
+        // buffer instead; robustBufferAccess keeps OOB fetches defined.
+        auto dummy = getDummyVertexBufferSlice();
+
+        buffers[i] = dummy.buffer;
+        offsets[i] = dummy.offset;
+        lengths[i] = dummy.size;
         strides[i] = 0;
       }
     }
@@ -9040,6 +9079,206 @@ namespace dxvk {
     // Delete zero buffer if it hasn't been actively used in a while
     if (m_zeroBuffer->getTrackId() + ZeroBufferLifetime < m_trackingId)
       m_zeroBuffer = nullptr;
+  }
+
+
+  DxvkResourceBufferInfo DxvkContext::getDummyVertexBufferSlice() {
+    if (unlikely(m_dummyVertexBuffer == nullptr)) {
+      DxvkBufferCreateInfo bufInfo;
+      bufInfo.size    = 1u << 16;
+      bufInfo.usage   = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+      bufInfo.stages  = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+                      | VK_PIPELINE_STAGE_TRANSFER_BIT;
+      bufInfo.access  = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT
+                      | VK_ACCESS_TRANSFER_WRITE_BIT;
+      bufInfo.debugName = "Dummy vertex buffer";
+
+      m_dummyVertexBuffer = m_device->createBuffer(bufInfo,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+      auto slice = m_dummyVertexBuffer->getSliceInfo();
+
+      // Zero-init on the init command buffer (outside any render pass) so
+      // vertex fetches from unbound streams read well-defined data.
+      m_cmd->cmdFillBuffer(DxvkCmdBuffer::InitBuffer,
+        slice.buffer, slice.offset, slice.size, 0u);
+
+      VkMemoryBarrier2 barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+      barrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+      barrier.dstStageMask  = VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT;
+      barrier.dstAccessMask = VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+
+      m_initBarriers.addMemoryBarrier(barrier);
+    }
+
+    m_cmd->track(m_dummyVertexBuffer, DxvkAccess::Read);
+    return m_dummyVertexBuffer->getSliceInfo();
+  }
+
+
+  void DxvkContext::ensureDummyDescriptorResources() {
+    if (likely(m_dummyDescriptors.buffer != nullptr))
+      return;
+
+    auto& d = m_dummyDescriptors;
+
+    // Zero buffer usable as uniform, storage and texel buffer
+    DxvkBufferCreateInfo bufInfo;
+    bufInfo.size    = 1u << 16;
+    bufInfo.usage   = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+                    | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                    | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT
+                    | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT
+                    | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufInfo.stages  = m_device->getShaderPipelineStages()
+                    | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    bufInfo.access  = VK_ACCESS_SHADER_READ_BIT
+                    | VK_ACCESS_TRANSFER_WRITE_BIT;
+    bufInfo.debugName = "Dummy descriptor buffer";
+
+    d.buffer = m_device->createBuffer(bufInfo,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    auto slice = d.buffer->getSliceInfo();
+
+    m_cmd->cmdFillBuffer(DxvkCmdBuffer::InitBuffer,
+      slice.buffer, slice.offset, slice.size, 0u);
+
+    VkMemoryBarrier2 barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+    barrier.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+    barrier.dstStageMask  = m_device->getShaderPipelineStages();
+    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+
+    m_initBarriers.addMemoryBarrier(barrier);
+
+    DxvkBufferViewKey bufferViewKey = { };
+    bufferViewKey.format = VK_FORMAT_R32_UINT;
+    bufferViewKey.usage  = VkBufferUsageFlagBits(
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+      | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+      | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT
+      | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
+    bufferViewKey.offset = 0u;
+    bufferViewKey.size   = bufInfo.size;
+
+    d.bufferView = d.buffer->createView(bufferViewKey);
+
+    // 1x1 2D image with six layers, usable as 2D and cube views.
+    // Keep everything in GENERAL layout so the same image works for
+    // both sampled and storage descriptors.
+    DxvkImageCreateInfo imgInfo = { };
+    imgInfo.type        = VK_IMAGE_TYPE_2D;
+    imgInfo.flags       = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    imgInfo.format      = VK_FORMAT_R8G8B8A8_UNORM;
+    imgInfo.sampleCount = VK_SAMPLE_COUNT_1_BIT;
+    imgInfo.extent      = { 1u, 1u, 1u };
+    imgInfo.numLayers   = 6u;
+    imgInfo.mipLevels   = 1u;
+    imgInfo.usage       = VK_IMAGE_USAGE_SAMPLED_BIT
+                        | VK_IMAGE_USAGE_STORAGE_BIT
+                        | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imgInfo.stages      = m_device->getShaderPipelineStages()
+                        | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    imgInfo.access      = VK_ACCESS_SHADER_READ_BIT
+                        | VK_ACCESS_TRANSFER_WRITE_BIT;
+    imgInfo.tiling      = VK_IMAGE_TILING_OPTIMAL;
+    imgInfo.layout      = VK_IMAGE_LAYOUT_GENERAL;
+    imgInfo.debugName   = "Dummy image (2D/cube)";
+
+    d.image2D = m_device->createImage(imgInfo,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    this->initImage(d.image2D, VK_IMAGE_LAYOUT_UNDEFINED);
+
+    imgInfo.type      = VK_IMAGE_TYPE_3D;
+    imgInfo.flags     = 0u;
+    imgInfo.numLayers = 1u;
+    imgInfo.debugName = "Dummy image (3D)";
+
+    d.image3D = m_device->createImage(imgInfo,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    this->initImage(d.image3D, VK_IMAGE_LAYOUT_UNDEFINED);
+
+    DxvkImageViewKey viewKey = { };
+    viewKey.usage    = VK_IMAGE_USAGE_SAMPLED_BIT;
+    viewKey.format   = imgInfo.format;
+    viewKey.layout   = VK_IMAGE_LAYOUT_GENERAL;
+    viewKey.aspects  = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewKey.mipIndex = 0u;
+    viewKey.mipCount = 1u;
+
+    viewKey.viewType   = VK_IMAGE_VIEW_TYPE_2D;
+    viewKey.layerIndex = 0u;
+    viewKey.layerCount = 1u;
+    d.sampled2D = d.image2D->createView(viewKey);
+
+    viewKey.viewType   = VK_IMAGE_VIEW_TYPE_CUBE;
+    viewKey.layerCount = 6u;
+    d.sampledCube = d.image2D->createView(viewKey);
+
+    viewKey.viewType   = VK_IMAGE_VIEW_TYPE_3D;
+    viewKey.layerCount = 1u;
+    d.sampled3D = d.image3D->createView(viewKey);
+
+    viewKey.usage    = VK_IMAGE_USAGE_STORAGE_BIT;
+    viewKey.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    d.storage2D = d.image2D->createView(viewKey);
+
+    viewKey.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    d.storage3D = d.image3D->createView(viewKey);
+  }
+
+
+  DxvkResourceBufferInfo DxvkContext::getDummyBufferInfo() {
+    ensureDummyDescriptorResources();
+
+    m_cmd->track(m_dummyDescriptors.buffer, DxvkAccess::Read);
+    return m_dummyDescriptors.buffer->getSliceInfo();
+  }
+
+
+  const DxvkDescriptor* DxvkContext::getDummyBufferViewDescriptor(bool raw) {
+    ensureDummyDescriptorResources();
+
+    m_cmd->track(m_dummyDescriptors.buffer, DxvkAccess::Read);
+    return m_dummyDescriptors.bufferView->getDescriptor(raw);
+  }
+
+
+  const DxvkDescriptor* DxvkContext::getDummyImageDescriptor(
+          VkImageViewType           viewType,
+          bool                      storage) {
+    ensureDummyDescriptorResources();
+
+    auto& d = m_dummyDescriptors;
+    DxvkImageView* view = nullptr;
+
+    switch (viewType) {
+      case VK_IMAGE_VIEW_TYPE_CUBE:
+      case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+        view = storage ? d.storage2D.ptr() : d.sampledCube.ptr();
+        break;
+
+      case VK_IMAGE_VIEW_TYPE_3D:
+        view = storage ? d.storage3D.ptr() : d.sampled3D.ptr();
+        break;
+
+      default:
+        view = storage ? d.storage2D.ptr() : d.sampled2D.ptr();
+        break;
+    }
+
+    const DxvkDescriptor* descriptor = view->getDescriptor(viewType);
+
+    if (!descriptor)
+      descriptor = view->getDescriptor();
+
+    m_cmd->track(view->image(), DxvkAccess::Read);
+    return descriptor;
   }
 
 
