@@ -192,16 +192,20 @@ With `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`, the full
 incl. cube/volume, render-to-texture + `GetRenderTargetData`, MRT, state blocks,
 vertex declarations, 60 presented frames, and device `Reset`.
 
-#### Known remaining gap — null *descriptor* writes for unbound shader resources
+#### Unbound shader resources — dummy descriptor fallback
 
-The legacy descriptor-update path still writes `VK_NULL_HANDLE` image views /
-samplers / buffers for **unbound shader resources**
-(`dxvk_context.cpp`, `updateResourceBindings`), which also requires
-`nullDescriptor`. The CI probe always binds its resources, so this does not
-trigger there — but retail games (Fallout 3 included) routinely draw with
-unbound texture stages. Expect this to need the same dummy-resource treatment
-(dummy 2D/cube image views, dummy sampler, dummy uniform/texel buffer) before
-retail content is stable. This is the next known work item for macOS 26.
+The legacy descriptor-update path (`dxvk_context.cpp`,
+`updateResourceBindings`) writes `VK_NULL_HANDLE` image views / buffers for
+**unbound shader resources**, which also requires `nullDescriptor`. Retail
+games (Fallout 3 included) routinely draw with unbound texture stages, so on
+devices without the feature SpockD3D9 now substitutes lazily-created dummy
+resources instead (`DxvkContext::ensureDummyDescriptorResources`): a 64 KiB
+zeroed buffer (uniform/storage/texel, with an `R32_UINT` view) and 1×1 zeroed
+images in `VK_IMAGE_LAYOUT_GENERAL` covering 2D/cube (six-layer
+cube-compatible) and 3D view types, for both sampled and storage descriptors.
+Unbound fetches read zero rather than crashing. The CI probe binds all its
+resources, so this path is regression-tested for inertness only; first real
+exercise will come from retail content.
 
 ---
 
