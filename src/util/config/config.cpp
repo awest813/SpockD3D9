@@ -948,6 +948,15 @@ namespace dxvk {
       { "d3d9.maxFrameLatency",             "1" },
       { "d3d9.deviceLossOnFocusLoss",       "False" },
     }} },
+    /* The Elder Scrolls IV: Oblivion (Gamebryo) - Windows D3D9 benchmark *
+     * title. Mirrors the compat subset of tools/oblivion/oblivion.dxvk.conf */
+    { R"(\\Oblivion.*\\Oblivion\.exe$)", {{
+      { "dxvk.enableShaderCache",           "True" },
+      { "d3d9.shaderModel",                 "3" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",             "1" },
+      { "d3d9.deviceLossOnFocusLoss",       "False" },
+    }} },
     /* Fallout New Vegas - Various visual issues  *
      * in mod New Vegas Reloaded. Nvidia path in  *
      * same mod use NvAPI_D3D9_StretchRectEx for  *

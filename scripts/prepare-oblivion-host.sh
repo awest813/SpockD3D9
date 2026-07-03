@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install SpockD3D9 PE d3d9.dll + dxvk.conf into a Fallout 3 game directory.
+# Install SpockD3D9 PE d3d9.dll + dxvk.conf into an Oblivion game directory.
 #
-# Thin wrapper around prepare-steam-d3d9-host.sh with Fallout 3 defaults.
+# Thin wrapper around prepare-steam-d3d9-host.sh with Oblivion defaults.
 
 set -euo pipefail
 
@@ -9,16 +9,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 GAME_DIR=""
 DLL_PATH=""
-PROFILE_PATH="$ROOT/tools/fallout3/fallout3.dxvk.conf"
+PROFILE_PATH="$ROOT/tools/oblivion/oblivion.dxvk.conf"
 DO_BUILD=0
-EXTRA_ARGS=()
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") --game-dir DIR [--dll PATH] [--profile PATH] [--build]
 
-Copy SpockD3D9 d3d9.dll and fallout3.dxvk.conf (as dxvk.conf) into DIR.
-Writes spockd3d9-host.env for launch-fallout3-host.sh.
+Copy SpockD3D9 d3d9.dll and oblivion.dxvk.conf (as dxvk.conf) into DIR.
+Writes spockd3d9-host.env for launch-oblivion-host.sh.
+
+Oblivion is 32-bit — this wrapper always uses the x86 PE build.
 EOF
 }
 
@@ -43,7 +44,7 @@ fi
 ARGS=(
   --game-dir "$GAME_DIR"
   --profile "$PROFILE_PATH"
-  --title "Fallout 3"
+  --title "The Elder Scrolls IV: Oblivion"
   --arch x86
 )
 
