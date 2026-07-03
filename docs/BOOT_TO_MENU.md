@@ -61,7 +61,8 @@ Or source the generated env and start the game your host normally uses
 
 ```bash
 ./scripts/check-boot-logs.sh /path/to/d3d9.log
-# or pipe wine output: ... 2>&1 | tee fallout3-boot.log
+# or stream host output directly:
+... 2>&1 | ./scripts/check-boot-logs.sh -
 ```
 
 ---
@@ -93,7 +94,7 @@ The prepare script writes `spockd3d9-host.env` next to the game. Typical content
 WINEDLLOVERRIDES="d3d9=n,b"
 DXVK_CONFIG_FILE="/path/to/game/dxvk.conf"
 DXVK_LOG_LEVEL=info
-MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 ```
 
 **MoltenVK inside the prefix:** If the host does not wire Vulkan automatically:
@@ -115,7 +116,7 @@ export DYLD_LIBRARY_PATH="$(brew --prefix molten-vk)/lib:$DYLD_LIBRARY_PATH"
 | Crash before `CreateDeviceEx OK` | `DXVK_LOG_LEVEL=debug`; compare with native `d3d9-gamebryo-probe` |
 | Black screen after device created | Shader compile failure — enable `dxvk.enableShaderCache = True`; retry second launch |
 | `Device lost` loop on focus | Profile has `d3d9.deviceLossOnFocusLoss = False` (default in `fallout3.dxvk.conf`) |
-| Instant exit, no DXVK line | Wrong DLL arch (need x86_64 PE); verify with `file d3d9.dll` |
+| Instant exit, no DXVK line | Wrong DLL arch (Fallout 3 needs x86 / PE32); verify with `file d3d9.dll` |
 | Game closes immediately, relaunches | Steam DRM on a direct-exe launch — use `--steam` instead of running `Fallout3.exe` |
 | No `d3d9.log` after `--steam` | Steam launches detached; confirm `DXVK_LOG_PATH` points at the game dir (set by `prepare-fallout3-host.sh`) |
 | Crash/black screen only with overlay | Steam overlay's D3D9 hook conflicts — retry with `--no-overlay` to isolate |

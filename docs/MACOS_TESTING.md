@@ -123,7 +123,7 @@ profiles under `tools/*/` already set them.
 Automated helpers (after PE build):
 
 ```bash
-./scripts/build-pe-d3d9.sh
+./scripts/build-pe-d3d9.sh --arch x86
 ./scripts/prepare-fallout3-host.sh --game-dir "/path/to/Fallout 3" --build
 ./scripts/launch-fallout3-host.sh --game-dir "/path/to/Fallout 3"
 ./scripts/check-boot-logs.sh "/path/to/Fallout 3/fallout3-spockd3d9.log"
@@ -183,7 +183,7 @@ pipeline creations in the log.
 | `DYLD_LIBRARY_PATH` | Locate freshly built `libdxvk_d3d9.dylib` |
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Override MoltenVK ICD (usually auto-detected) |
 | `WINEDLLOVERRIDES` | `d3d9=n,b` to load SpockD3D9 PE DLL in Wine hosts |
-| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `0` if hitting MoltenVK argument-buffer issues |
+| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `2` for MoltenVK argument-buffer descriptors on current macOS runners |
 | `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
 | `MTL_DEBUG_LAYER` | Metal API validation (heavy; isolate Metal-side failures) |
 

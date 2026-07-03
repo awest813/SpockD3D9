@@ -3,17 +3,32 @@
 #
 # Usage:
 #   ./scripts/check-boot-logs.sh fallout3-spockd3d9.log
-#   ./scripts/check-boot-logs.sh d3d9.log
+#   ./scripts/check-boot-logs.sh -
 
 set -euo pipefail
 
-if [ $# -lt 1 ]; then
-  echo "Usage: $(basename "$0") LOG_FILE" >&2
+if [ $# -ne 1 ]; then
+  echo "Usage: $(basename "$0") LOG_FILE|-" >&2
   exit 1
 fi
 
-LOG="$1"
-if [ ! -f "$LOG" ]; then
+LOG_INPUT="$1"
+LOG="$LOG_INPUT"
+LOG_LABEL="$LOG_INPUT"
+TMP_LOG=""
+
+if [ "$LOG_INPUT" = "-" ]; then
+  if [ -t 0 ]; then
+    echo "error: '-' was specified, but no log data was piped on stdin" >&2
+    exit 1
+  fi
+
+  TMP_LOG="$(mktemp "${TMPDIR:-/tmp}/spockd3d9-boot-log.XXXXXX")"
+  trap 'rm -f "$TMP_LOG"' EXIT
+  cat > "$TMP_LOG"
+  LOG="$TMP_LOG"
+  LOG_LABEL="stdin"
+elif [ ! -f "$LOG" ]; then
   echo "error: log file not found: $LOG" >&2
   exit 1
 fi
@@ -24,7 +39,7 @@ warn() { echo "  [WARN] $1"; }
 info() { echo "  [----] $1"; }
 
 echo "=== SpockD3D9 boot milestone check ==="
-echo "Log: $LOG"
+echo "Log: $LOG_LABEL"
 echo ""
 
 v1=0 v2=0 v3=0 v4_hint=0

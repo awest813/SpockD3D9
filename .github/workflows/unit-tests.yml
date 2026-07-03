@@ -65,3 +65,15 @@ jobs:
     # hermetic — it needs only the Python standard library, no Vulkan/SDL/build.
     - name: Validate shipped dxvk.conf profiles
       run: python3 tests/conf/test_dxvk_conf_profiles.py
+
+  shell-tools:
+    runs-on: ubuntu-latest
+    name: User-facing shell tools
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Boot-to-menu log parsing should stay usable before users have a Vulkan
+    # setup or a Wine-family host available; these tests only need bash/Python.
+    - name: Validate boot log checker
+      run: python3 tests/scripts/test_check_boot_logs.py

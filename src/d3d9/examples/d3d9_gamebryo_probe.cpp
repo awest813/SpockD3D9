@@ -1229,6 +1229,64 @@ namespace {
       std::printf("d3d9-gamebryo-probe: TimestampQuery stalled (0x%08lx)\n", hr);
   }
 
+  bool exerciseResetCycle(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS presentParams) {
+    IDirect3DVertexBuffer9* losableVb = nullptr;
+    HRESULT hr = device->CreateVertexBuffer(
+      256,
+      D3DUSAGE_DYNAMIC,
+      D3DFVF_XYZ,
+      D3DPOOL_DEFAULT,
+      &losableVb,
+      nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: ResetCycle CreateVertexBuffer DEFAULT failed (0x%08x)\n",
+        static_cast<unsigned int>(hr));
+      return false;
+    }
+
+    hr = device->Reset(&presentParams);
+    if (hr != D3DERR_INVALIDCALL) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: ResetCycle expected live DEFAULT resource to block Reset, got 0x%08x\n",
+        static_cast<unsigned int>(hr));
+      losableVb->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: ResetCycle live DEFAULT resource blocked Reset OK\n");
+
+    hr = device->TestCooperativeLevel();
+    if (hr != D3DERR_DEVICENOTRESET) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: ResetCycle expected D3DERR_DEVICENOTRESET, got 0x%08x\n",
+        static_cast<unsigned int>(hr));
+      losableVb->Release();
+      return false;
+    }
+    std::printf("d3d9-gamebryo-probe: ResetCycle TestCooperativeLevel not-reset OK\n");
+
+    losableVb->Release();
+
+    hr = device->Reset(&presentParams);
+    if (FAILED(hr)) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: ResetCycle Reset after release failed (0x%08x)\n",
+        static_cast<unsigned int>(hr));
+      return false;
+    }
+
+    hr = device->TestCooperativeLevel();
+    if (hr != D3D_OK) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: ResetCycle TestCooperativeLevel after reset failed (0x%08x)\n",
+        static_cast<unsigned int>(hr));
+      return false;
+    }
+
+    std::printf("d3d9-gamebryo-probe: ResetCycle OK\n");
+    return true;
+  }
+
 } // namespace
 
 int main(int argc, char** argv) {

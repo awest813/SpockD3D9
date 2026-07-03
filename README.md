@@ -91,8 +91,8 @@ Game Porting Toolkit layer, SpockD3D9 can cross-compile an experimental
 
 ```bash
 brew install mingw-w64   # if not already installed
-./scripts/build-pe-d3d9.sh
-# Output: build-pe-d3d9/d3d9.dll
+./scripts/build-pe-d3d9.sh --arch x86   # 32-bit games like Fallout 3 / New Vegas
+# Output: build-pe-d3d9-x86/d3d9.dll
 ```
 
 Use with a Windows host via `WINEDLLOVERRIDES="d3d9=n,b"`. See

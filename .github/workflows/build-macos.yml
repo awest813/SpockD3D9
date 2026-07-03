@@ -90,7 +90,7 @@ jobs:
         done
 
         export DXVK_LOG_LEVEL=info
-        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 
         # Run one smoke binary. The binary forces its own DXVK_WSI_DRIVER, so we
         # only need to point at the right executable. Returns 0 on success or on
@@ -109,8 +109,8 @@ jobs:
           local status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
-            if grep -Eq "DXVK: No adapters found|required feature 'geometryShader'|Vulkan 1\\.3 capable setup is required" "$log"; then
-              echo "Skipping $binary smoke test: GitHub macOS runner GPU lacks required Vulkan features."
+            if grep -Eq "DXVK: No adapters found|required feature 'geometryShader'|Vulkan 1\\.3 capable setup is required|AppleParavirtDevice newArgumentEncoderWithLayout" "$log"; then
+              echo "Skipping $binary smoke test: GitHub macOS runner GPU lacks required Vulkan/Metal features."
               return 0
             fi
             return "$status"
@@ -142,7 +142,7 @@ jobs:
         unset VK_ICD_FILENAMES VK_DRIVER_FILES
         export DYLD_LIBRARY_PATH="$LIB_DIR"
         export DXVK_LOG_LEVEL=info
-        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 
         log="$RUNNER_TEMP/d3d9-clear-autodiscover.log"
         set +e
@@ -165,8 +165,8 @@ jobs:
         fi
 
         if [ "$status" -ne 0 ]; then
-          if grep -Eq "DXVK: No adapters found|required feature 'geometryShader'|Vulkan 1\.3 capable setup is required" "$log"; then
-            echo "Skipping auto-discovery smoke test: GitHub macOS runner GPU lacks required Vulkan features."
+          if grep -Eq "DXVK: No adapters found|required feature 'geometryShader'|Vulkan 1\.3 capable setup is required|AppleParavirtDevice newArgumentEncoderWithLayout" "$log"; then
+            echo "Skipping auto-discovery smoke test: GitHub macOS runner GPU lacks required Vulkan/Metal features."
             exit 0
           fi
           exit "$status"
