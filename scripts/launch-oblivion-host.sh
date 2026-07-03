@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Launch Fallout 3 under a Wine-family host with SpockD3D9 env vars applied.
+# Launch The Elder Scrolls IV: Oblivion under a Wine-family host with SpockD3D9.
 #
-# Thin wrapper around launch-steam-d3d9-host.sh with Fallout 3 defaults.
+# Thin wrapper around launch-steam-d3d9-host.sh with Oblivion defaults.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 GAME_DIR=""
-EXE_NAME="Fallout3.exe"
+EXE_NAME="Oblivion.exe"
 DRY_RUN=0
 STEAM_MODE=0
-APPID="22370"
+APPID="22330"
 STEAM_EXE="${STEAM_EXE:-}"
 NO_OVERLAY=0
 
@@ -19,13 +19,13 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") --game-dir DIR [options]
 
-Source spockd3d9-host.env and launch Fallout 3 under \$WINE (default: wine)
+Source spockd3d9-host.env and launch Oblivion under \$WINE (default: wine)
 with the SpockD3D9 d3d9.dll override applied.
 
 Options:
-  --exe NAME      Game executable for direct launch (default: Fallout3.exe)
-  --steam         Launch through Steam instead of running the exe directly.
-  --appid N       Steam App ID (default: $APPID = Fallout 3 GOTY; 22300 = base)
+  --exe NAME      Game executable for direct launch (default: Oblivion.exe)
+  --steam         Launch through Steam (default for retail builds).
+  --appid N       Steam App ID (default: $APPID = Oblivion GOTY; 4500 = original)
   --steam-exe P   Path to Steam.exe in the prefix.
   --no-overlay    Disable the Steam overlay for clean D3D9 diagnostics.
   --dry-run       Print the resolved command and environment, then exit.
@@ -56,8 +56,8 @@ fi
 ARGS=(
   --game-dir "$GAME_DIR"
   --exe "$EXE_NAME"
-  --title "Fallout 3"
-  --log-slug fallout3
+  --title "The Elder Scrolls IV: Oblivion"
+  --log-slug oblivion
 )
 
 [ "$STEAM_MODE" -eq 1 ] && ARGS+=(--steam --appid "$APPID")

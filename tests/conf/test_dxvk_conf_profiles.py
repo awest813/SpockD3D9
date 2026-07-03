@@ -21,13 +21,14 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 REFERENCE_CONF = os.path.join(REPO_ROOT, "dxvk.conf")
 
 # Benchmark profiles that must ship while Fallout 3, Fallout: New Vegas,
-# Dragon Age: Origins, and Galactic Civilizations II are the Windows D3D9/macOS
-# compatibility targets.
+# Dragon Age: Origins, Galactic Civilizations II, and Oblivion are the Windows
+# D3D9/macOS compatibility targets.
 REQUIRED_PROFILES = {
     os.path.join("tools", "fallout3", "fallout3.dxvk.conf"),
     os.path.join("tools", "fallout-new-vegas", "fallout-new-vegas.dxvk.conf"),
     os.path.join("tools", "dragon-age-origins", "dragon-age-origins.dxvk.conf"),
     os.path.join("tools", "galactic-civilizations-ii", "galactic-civilizations-ii.dxvk.conf"),
+    os.path.join("tools", "oblivion", "oblivion.dxvk.conf"),
     os.path.join("tools", "macos", "macos.dxvk.conf"),
 }
 

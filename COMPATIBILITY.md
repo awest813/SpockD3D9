@@ -25,6 +25,7 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 | Title | Status | Engine / API | Path | Notes | Detailed tracker |
 |-------|--------|--------------|------|-------|-----------------|
 | **Fallout 3 (Steam, Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Primary target; execution model decided ([native-first translator + optional opt-in PE `d3d9.dll`, host-agnostic](docs/FALLOUT3_EXECUTION_MODEL.md)), profile shipped — PE `d3d9.dll` scaffold available via `scripts/build-pe-d3d9.sh`; boot-to-menu validation pending | [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) |
+| **The Elder Scrolls IV: Oblivion (Steam, Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Benchmark target; profile shipped — same Gamebryo/32-bit PE path as Fallout 3; helpers in `scripts/prepare-oblivion-host.sh` / `launch-oblivion-host.sh` | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Fallout: New Vegas (Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Benchmark target; profile shipped — shares Fallout 3's PE `d3d9.dll` blocker and Gamebryo validation path | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Dragon Age: Origins (Windows)** | **Blocked** | BioWare Eclipse / D3D9 | Windows game compat | Benchmark target; profile shipped — expands coverage beyond Gamebryo to an SM3-heavy RPG renderer | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Galactic Civilizations II (Windows)** | **Blocked** | Stardock strategy renderer / D3D9 | Windows game compat | Benchmark target; profile shipped — adds old-strategy UI, mode-picker, and map-rendering coverage | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
@@ -63,6 +64,7 @@ CI validates every profile under `tools/**/*.dxvk.conf` against the options docu
 |---------|------|----------|
 | **macOS platform (native ports)** | [`tools/macos/macos.dxvk.conf`](tools/macos/macos.dxvk.conf) | Starting point for SDL3/GLFW native D3D9 ports on Apple Silicon / Intel |
 | **Fallout 3 (Gamebryo)** | [`tools/fallout3/fallout3.dxvk.conf`](tools/fallout3/fallout3.dxvk.conf) | Windows host + PE `d3d9.dll` override (when available) |
+| **The Elder Scrolls IV: Oblivion (Gamebryo)** | [`tools/oblivion/oblivion.dxvk.conf`](tools/oblivion/oblivion.dxvk.conf) | Windows host + PE `d3d9.dll` override (32-bit Steam build) |
 | **Fallout: New Vegas** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf) | Gamebryo benchmark title |
 | **Dragon Age: Origins** | [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf) | SM3-heavy BioWare RPG |
 | **Galactic Civilizations II** | [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf) | Strategy UI / mode-picker coverage |

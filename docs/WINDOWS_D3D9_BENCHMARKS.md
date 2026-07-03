@@ -1,12 +1,13 @@
 # Windows D3D9 macOS benchmark targets
 
-SpockD3D9's compatibility work is measured against four retail Windows D3D9
+SpockD3D9's compatibility work is measured against five retail Windows D3D9
 games on macOS:
 
 1. **Fallout 3** - Gamebryo, fixed-function + SM2/SM3
-2. **Fallout: New Vegas** - Gamebryo, fixed-function + SM2/SM3
-3. **Dragon Age: Origins** - BioWare Eclipse, SM3 renderer
-4. **Galactic Civilizations II** - Stardock strategy renderer, D3D9 UI/map rendering
+2. **The Elder Scrolls IV: Oblivion** - Gamebryo, fixed-function + SM2/SM3
+3. **Fallout: New Vegas** - Gamebryo, fixed-function + SM2/SM3
+4. **Dragon Age: Origins** - BioWare Eclipse, SM3 renderer
+5. **Galactic Civilizations II** - Stardock strategy renderer, D3D9 UI/map rendering
 
 These titles exercise the compatibility surface that matters most for hosted
 Windows D3D9 games: device creation, display mode enumeration, fullscreen/reset
@@ -15,7 +16,7 @@ presentation, and old-engine timing assumptions.
 
 ## Current blocker
 
-All four are Windows executables. They require an external Windows host plus an
+All five are Windows executables. They require an external Windows host plus an
 experimental PE `d3d9.dll` build of SpockD3D9. The default macOS build still
 emits the native `libdxvk_d3d9.dylib`, which is the canonical translator artifact
 but cannot be loaded directly by an unmodified Windows game.
@@ -25,6 +26,7 @@ but cannot be loaded directly by an unmodified Windows game.
 | Title | Executable | Steam App ID | Profile |
 |-------|------------|--------------|---------|
 | Fallout 3 | `Fallout3.exe` | 22300 (base) / 22370 (GOTY) | `tools/fallout3/fallout3.dxvk.conf` |
+| The Elder Scrolls IV: Oblivion | `Oblivion.exe` | 4500 (base) / 22330 (GOTY) | `tools/oblivion/oblivion.dxvk.conf` |
 | Fallout: New Vegas | `FalloutNV.exe` | 22380 (base) / 22490 (Ultimate) | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
 | Dragon Age: Origins | `daorigins.exe` | 47810 | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
 | Galactic Civilizations II | `GC2*.exe` | 3590 (Ultimate) | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
@@ -33,14 +35,14 @@ The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
 
-All four are Steam titles, so the hosted launch path uses Steam to satisfy DRM
-and the overlay. `scripts/launch-fallout3-host.sh --steam --appid <id>` works
-for any of them once the matching profile is installed as `dxvk.conf` in the
-game directory (the script name is Fallout 3-centric but the launch mechanism
-is title-agnostic).
+All five are Steam titles, so the hosted launch path uses Steam to satisfy DRM
+and the overlay. Title-specific wrappers (`launch-fallout3-host.sh`,
+`launch-oblivion-host.sh`) or the generic `launch-steam-d3d9-host.sh --steam
+--appid <id>` work once the matching profile is installed as `dxvk.conf` in the
+game directory.
 
-**Built-in profiles (auto-applied):** Fallout 3, Dragon Age: Origins, and
-Galactic Civilizations II also have compiled-in profiles in
+**Built-in profiles (auto-applied):** Fallout 3, Oblivion, Dragon Age: Origins,
+and Galactic Civilizations II also have compiled-in profiles in
 `src/util/config/config.cpp` that match the game executable and auto-apply the
 compat-relevant subset of the keys above (shader model, refresh-rate lock,
 frame latency, focus-loss handling, plus `modeCountCompatibility` for GalCiv II).
@@ -77,6 +79,13 @@ Track every title through the same milestones so regressions are comparable:
 - D24S8 depth/stencil and shadow/effect stencil paths
 - Mixed fixed-function and SM3 lighting
 - `TestCooperativeLevel` / `Reset` behavior around focus and resolution changes
+
+### The Elder Scrolls IV: Oblivion
+
+- Same Gamebryo baseline as Fallout 3 (SM3 + fixed-function, BCn textures)
+- Oblivion-specific water, HDR bloom, and distant-terrain LOD
+- Launcher (`OblivionLauncher.exe`) display-mode selection and fullscreen `Reset`
+- Engine timing stability when refresh rates above 60 Hz are hidden by profile
 
 ### Fallout: New Vegas
 

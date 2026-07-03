@@ -136,6 +136,20 @@ visually; see [BOOT_TO_MENU.md](BOOT_TO_MENU.md).
 Manual steps (same outcome) are in [tools/fallout3/README.md](../tools/fallout3/README.md).
 Track milestones V1–V10 in [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md).
 
+### Oblivion (Steam, Windows)
+
+Same 32-bit PE workflow as Fallout 3; use the Oblivion helpers:
+
+```bash
+./scripts/build-pe-d3d9.sh --arch x86
+./scripts/prepare-oblivion-host.sh --game-dir "/path/to/Oblivion" --build
+./scripts/launch-oblivion-host.sh --game-dir "/path/to/Oblivion" --steam
+./scripts/check-boot-logs.sh "/path/to/Oblivion/d3d9.log"
+```
+
+Steam App IDs: **22330** = Oblivion GOTY (default), **4500** = Oblivion (original).
+Guide: [tools/oblivion/README.md](../tools/oblivion/README.md).
+
 ## 5. Capture benchmark results consistently
 
 After each Fallout 3 (or other Windows D3D9 title) host run, record results in
