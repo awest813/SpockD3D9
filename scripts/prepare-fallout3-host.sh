@@ -95,7 +95,7 @@ export DXVK_LOG_LEVEL="\${DXVK_LOG_LEVEL:-info}"
 # Write d3d9.log into the game directory. Required for Steam launches, which
 # start the game detached so its stdout cannot be captured by the launcher.
 export DXVK_LOG_PATH="\${DXVK_LOG_PATH:-$GAME_DIR}"
-export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 # Optional if the host does not find MoltenVK:
 # export DYLD_LIBRARY_PATH="\$(brew --prefix molten-vk)/lib:\$DYLD_LIBRARY_PATH"
 #

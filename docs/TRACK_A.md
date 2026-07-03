@@ -71,7 +71,7 @@ Use the platform profile or a title profile:
 export DXVK_CONFIG_FILE=/path/to/tools/macos/macos.dxvk.conf
 # or tools/fallout3/fallout3.dxvk.conf for hosted Fallout 3
 export DXVK_WSI_DRIVER=SDL3
-export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0   # if argument-buffer issues appear
+export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2   # current MoltenVK descriptor path
 ```
 
 **Always enable on macOS:**
@@ -102,7 +102,7 @@ export DXVK_LOG_LEVEL=debug   # per-shader detail when debugging compile failure
 |----------|---------|
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Override MoltenVK ICD (usually auto-detected via Homebrew) |
 | `DYLD_LIBRARY_PATH` | Point at custom `libMoltenVK.dylib` / `libvulkan.dylib` |
-| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `0` if hits argument-buffer bugs (also set in CI smoke scripts) |
+| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `2` for MoltenVK argument-buffer descriptors (also set in CI smoke scripts) |
 | `MVK_CONFIG_RESUME_LOST_DEVICE` | MoltenVK device-loss recovery (rare for D3D9) |
 | `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
 | `MTL_DEBUG_LAYER` | Metal API validation (heavy; use when isolating Metal-side failures) |

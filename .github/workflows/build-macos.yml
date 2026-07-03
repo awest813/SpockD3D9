@@ -90,7 +90,7 @@ jobs:
         done
 
         export DXVK_LOG_LEVEL=info
-        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 
         # Run one smoke binary. The binary forces its own DXVK_WSI_DRIVER, so we
         # only need to point at the right executable. Returns 0 on success or on
@@ -142,7 +142,7 @@ jobs:
         unset VK_ICD_FILENAMES VK_DRIVER_FILES
         export DYLD_LIBRARY_PATH="$LIB_DIR"
         export DXVK_LOG_LEVEL=info
-        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+        export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 
         log="$RUNNER_TEMP/d3d9-clear-autodiscover.log"
         set +e

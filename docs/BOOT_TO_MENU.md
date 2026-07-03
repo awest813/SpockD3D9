@@ -94,7 +94,7 @@ The prepare script writes `spockd3d9-host.env` next to the game. Typical content
 WINEDLLOVERRIDES="d3d9=n,b"
 DXVK_CONFIG_FILE="/path/to/game/dxvk.conf"
 DXVK_LOG_LEVEL=info
-MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0
+MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2
 ```
 
 **MoltenVK inside the prefix:** If the host does not wire Vulkan automatically:
