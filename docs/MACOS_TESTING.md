@@ -190,9 +190,11 @@ pipeline creations in the log.
 ## 8. CI parity
 
 GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
-(arm64) and `macos-13` (x86_64), plus an optional PE cross-compile job when
-`mingw-w64` is available. Universal fat binaries (`--arch universal`) are not
-built in CI — use the per-arch matrix artifacts or build slices locally. See
+(arm64) and `macos-13` (x86_64), plus a PE cross-compile job that builds **both**
+the 32-bit (x86) and 64-bit (x64) `d3d9.dll` via a matrix and verifies each one's
+bitness. The 32-bit slice is the artifact needed for Fallout 3-class titles.
+Universal fat binaries (`--arch universal`) — of the *native* dylib — are not
+built in CI; use the per-arch matrix artifacts or build slices locally. See
 `.github/workflows/build-macos.yml`.
 
 ## 9. Troubleshooting
