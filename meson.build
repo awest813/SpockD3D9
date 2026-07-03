@@ -68,7 +68,7 @@ dep_displayinfo = dependency(
 
 if get_option('enable_pe_d3d9')
   if platform != 'windows'
-    error('enable_pe_d3d9 requires cross-compiling to Windows. Use scripts/build-pe-d3d9.sh or pass --cross-file cross/pe-x86_64-w64-mingw32.txt.')
+    error('enable_pe_d3d9 requires cross-compiling to Windows. Use scripts/build-pe-d3d9.sh [--arch x64|x86|both] or pass --cross-file cross/pe-x86_64-w64-mingw32.txt (64-bit) / cross/pe-i686-w64-mingw32.txt (32-bit).')
   endif
   if not get_option('enable_d3d9')
     error('enable_pe_d3d9 requires enable_d3d9=true.')

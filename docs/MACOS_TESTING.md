@@ -52,26 +52,73 @@ export DXVK_LOG_LEVEL=debug
 ## 2. Experimental PE `d3d9.dll` cross-build
 
 Required for hosting unmodified Windows `.exe` files via Wine / CrossOver /
-Game Porting Toolkit. Not part of the default native build.
+Game Porting Toolkit and Whisky-family wrappers (Cosmos). Not part of the
+default native build.
+
+**The DLL architecture must match the game process architecture.** Most classic
+D3D9 titles — Fallout 3 / New Vegas, Oblivion, Dragon Age: Origins — are
+**32-bit**, so they need an `--arch x86` build; a 32-bit process cannot load a
+64-bit DLL (including under Wine/CrossOver wow64 on Apple Silicon).
 
 ```bash
-./scripts/build-pe-d3d9.sh
-file build-pe-d3d9/d3d9.dll
+./scripts/build-pe-d3d9.sh --arch x86     # 32-bit games (Fallout 3, etc.)
+./scripts/build-pe-d3d9.sh --arch x64     # 64-bit games (default)
+./scripts/build-pe-d3d9.sh --arch both    # both
+file build-pe-d3d9-x86/d3d9.dll
 ```
 
 **Pass criteria:**
 
 - Script exits 0
-- `file` reports `PE32+ executable (DLL)` (or `PE32 executable (DLL)`)
-- Output at `build-pe-d3d9/d3d9.dll`
+- `file` reports `PE32 executable (DLL)` for x86, `PE32+ executable (DLL)` for x64
+- Output at `build-pe-d3d9-x86/d3d9.dll` (x86) and/or `build-pe-d3d9/d3d9.dll` (x64)
 
 Use `--wipe` to force a clean reconfigure:
 
 ```bash
-./scripts/build-pe-d3d9.sh --wipe
+./scripts/build-pe-d3d9.sh --arch x86 --wipe
 ```
 
-## 3. Fallout 3 boot-to-menu (hosted)
+## 3. Cosmos / Whisky-family bottle workflow
+
+Cosmos is a Whisky-family Wine wrapper (like Whisky / Sikarugir / CrossOver)
+for Apple Silicon: it manages Wine **bottles** and exposes graphics-backend and
+DLL-override toggles in a GUI. SpockD3D9 plugs in as a native (non-builtin)
+`d3d9.dll` inside a bottle, giving the **D3D9 → Vulkan → MoltenVK → Metal** path
+instead of the wrapper's own D3DMetal/DXVK.
+
+1. **Build the matching-bitness DLL** (section 2). Check the target game's
+   bitness first — Fallout 3 and friends are 32-bit, so `--arch x86`.
+
+2. **Locate the game directory inside the bottle.** It lives under the bottle's
+   `drive_c`, e.g.
+   `~/Library/Containers/<bottle>/.../drive_c/Program Files (x86)/.../Fallout 3/`.
+   Cosmos' "Open Bottle in Finder" (or the per-bottle path it shows) gets you there.
+
+3. **Install the override next to the game `.exe`:**
+
+   ```bash
+   cp build-pe-d3d9-x86/d3d9.dll "/path/to/bottle/.../Fallout 3/"
+   cp tools/fallout3/fallout3.dxvk.conf "/path/to/bottle/.../Fallout 3/dxvk.conf"
+   ```
+
+   (`scripts/prepare-fallout3-host.sh --game-dir "<that path>"` does both and
+   validates the DLL is 32-bit.)
+
+4. **Force Wine to use our DLL, not its builtin.** Either set the env override
+   `WINEDLLOVERRIDES="d3d9=n,b"` for the launch, or add `d3d9` as a **native
+   (then builtin)** library in the bottle's Wine configuration GUI. Disable the
+   wrapper's own D3DMetal/DXVK backend for D3D9 so it does not shadow our DLL.
+
+5. **Confirm SpockD3D9 actually loaded:** a `d3d9.log` (or the configured
+   `DXVK_LOG_PATH`) appears next to the game and the log shows DXVK/SpockD3D9
+   banner lines and `D3D9: CreateDeviceEx OK`. If Wine logs its builtin d3d9
+   instead, the override did not take (see Troubleshooting).
+
+The dxvk.conf keys that matter most in a bottle are in section 6; the title
+profiles under `tools/*/` already set them.
+
+## 4. Fallout 3 boot-to-menu (hosted)
 
 Automated helpers (after PE build):
 
@@ -89,7 +136,7 @@ visually; see [BOOT_TO_MENU.md](BOOT_TO_MENU.md).
 Manual steps (same outcome) are in [tools/fallout3/README.md](../tools/fallout3/README.md).
 Track milestones V1–V10 in [FALLOUT3_COMPAT.md](FALLOUT3_COMPAT.md).
 
-## 4. Capture benchmark results consistently
+## 5. Capture benchmark results consistently
 
 After each Fallout 3 (or other Windows D3D9 title) host run, record results in
 the format from [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#reporting-a-benchmark-result):
@@ -100,7 +147,7 @@ the format from [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#reportin
 4. Highest V milestone reached and first failing subsystem
 5. `DXVK_LOG_LEVEL=info` (and `debug` on failures) logs
 
-## 5. Track A / MoltenVK tuning
+## 6. Track A / MoltenVK tuning
 
 SpockD3D9's default macOS path is **D3D9 → Vulkan → MoltenVK → Metal**. Operational
 guide: [TRACK_A.md](TRACK_A.md).
@@ -126,7 +173,7 @@ export DXVK_LOG_LEVEL=debug   # per-shader detail when a compile fails
 Re-run the same scene twice and compare: the second run should show fewer new
 pipeline creations in the log.
 
-## 6. Environment reference
+## 7. Environment reference
 
 | Variable | Purpose |
 |----------|---------|
@@ -140,20 +187,23 @@ pipeline creations in the log.
 | `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
 | `MTL_DEBUG_LAYER` | Metal API validation (heavy; isolate Metal-side failures) |
 
-## 7. CI parity
+## 8. CI parity
 
 GitHub Actions runs the native build + `d3d9-clear` smoke test on `macos-14`
-(arm64) and `macos-13` (x86_64), plus an optional PE cross-compile job when
-`mingw-w64` is available. Universal fat binaries (`--arch universal`) are not
-built in CI — use the per-arch matrix artifacts or build slices locally. See
+(arm64) and `macos-13` (x86_64), plus a PE cross-compile job that builds **both**
+the 32-bit (x86) and 64-bit (x64) `d3d9.dll` via a matrix and verifies each one's
+bitness. The 32-bit slice is the artifact needed for Fallout 3-class titles.
+Universal fat binaries (`--arch universal`) — of the *native* dylib — are not
+built in CI; use the per-arch matrix artifacts or build slices locally. See
 `.github/workflows/build-macos.yml`.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Likely cause |
 |---------|----------------|
 | `DXVK: No adapters found` | MoltenVK not installed or ICD not discoverable |
 | `d3d9-clear` missing | SDL3/SDL2 not found at configure time |
 | PE build: `x86_64-w64-mingw32-g++ not found` | `brew install mingw-w64` |
-| Wine host still uses built-in D3D9 | `WINEDLLOVERRIDES` not set or DLL not on search path |
+| Wine host still uses built-in D3D9 | `WINEDLLOVERRIDES` not set, DLL not next to the `.exe`, or wrapper's own D3DMetal/DXVK backend still handling D3D9 |
+| Game ignores DLL / "not a valid Win32 application" | Bitness mismatch — 32-bit game needs `--arch x86`, 64-bit game needs `--arch x64` |
 | Black screen / device lost on focus | Check window lifecycle + present throttling fixes in swapchain |

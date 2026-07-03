@@ -181,7 +181,19 @@ jobs:
 
   build-pe-d3d9:
     runs-on: macos-14
-    name: Experimental PE d3d9.dll (MinGW cross)
+    name: Experimental PE d3d9.dll (MinGW cross, ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # x86 (32-bit) is the primary target: Fallout 3 / New Vegas, Oblivion,
+          # Dragon Age: Origins are all 32-bit. x64 covers 64-bit titles.
+          - arch: x86
+            out_dir: build-pe-d3d9-x86
+            pe_signature: 'PE32 executable (DLL)'
+          - arch: x64
+            out_dir: build-pe-d3d9
+            pe_signature: 'PE32+ executable (DLL)'
 
     steps:
     - name: Checkout code
@@ -194,17 +206,20 @@ jobs:
       run: |
         brew install meson ninja glslang mingw-w64
 
-    - name: Cross-compile PE d3d9.dll
-      run: ./scripts/build-pe-d3d9.sh --wipe
+    - name: Cross-compile PE d3d9.dll (${{ matrix.arch }})
+      run: ./scripts/build-pe-d3d9.sh --arch ${{ matrix.arch }} --wipe
 
-    - name: Verify PE output
+    - name: Verify PE output (${{ matrix.arch }})
       run: |
-        test -f build-pe-d3d9/d3d9.dll
-        file build-pe-d3d9/d3d9.dll | tee /dev/stderr | grep -Eq 'PE32\+ executable \(DLL\)|PE32 executable \(DLL\)'
+        test -f ${{ matrix.out_dir }}/d3d9.dll
+        # Match the exact bitness so a wrong-arch toolchain is caught. Note
+        # "PE32+ executable" does not contain the substring "PE32 executable".
+        file ${{ matrix.out_dir }}/d3d9.dll | tee /dev/stderr \
+          | grep -qF '${{ matrix.pe_signature }}'
 
-    - name: Upload PE artifact
+    - name: Upload PE artifact (${{ matrix.arch }})
       uses: actions/upload-artifact@v4
       with:
-        name: spockd3d9-pe-d3d9-${{ github.sha }}
-        path: build-pe-d3d9/d3d9.dll
+        name: spockd3d9-pe-d3d9-${{ matrix.arch }}-${{ github.sha }}
+        path: ${{ matrix.out_dir }}/d3d9.dll
         if-no-files-found: error
