@@ -113,7 +113,7 @@ project does not commit to it; see the decision record for why.
 End-to-end workflow for reaching the main menu:
 
 ```bash
-./scripts/build-pe-d3d9.sh
+./scripts/build-pe-d3d9.sh --arch x86
 ./scripts/prepare-fallout3-host.sh --game-dir "/path/to/Fallout 3" --build
 ./scripts/launch-fallout3-host.sh --game-dir "/path/to/Fallout 3"
 ./scripts/check-boot-logs.sh "/path/to/Fallout 3/fallout3-spockd3d9.log"
