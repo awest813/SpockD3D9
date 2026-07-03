@@ -25,8 +25,9 @@ SpockD3D9 provides **only** `d3d9.dll` + Vulkan translation. DirectInput, audio,
 ### 1. Build the override DLL
 
 ```bash
-./scripts/build-pe-d3d9.sh
-# Output: build-pe-d3d9/d3d9.dll
+# Fallout 3 is 32-bit, so build the 32-bit (i686) DLL.
+./scripts/build-pe-d3d9.sh --arch x86
+# Output: build-pe-d3d9-x86/d3d9.dll
 ```
 
 ### 2. Install into the game directory

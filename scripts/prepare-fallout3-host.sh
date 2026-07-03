@@ -5,16 +5,19 @@
 #   ./scripts/prepare-fallout3-host.sh --game-dir /path/to/Fallout\ 3
 #   ./scripts/prepare-fallout3-host.sh --game-dir "$WINEPREFIX/drive_c/.../Fallout 3"
 #
+# Fallout 3 is a 32-bit (i686) executable, so it can only load a 32-bit
+# d3d9.dll — this script defaults to the x86 build and validates bitness.
+#
 # Options:
-#   --dll PATH     SpockD3D9 d3d9.dll (default: build-pe-d3d9/d3d9.dll)
-#   --build        Run scripts/build-pe-d3d9.sh if DLL is missing
+#   --dll PATH     SpockD3D9 d3d9.dll (default: build-pe-d3d9-x86/d3d9.dll)
+#   --build        Run scripts/build-pe-d3d9.sh --arch x86 if DLL is missing
 #   --profile PATH dxvk.conf source (default: tools/fallout3/fallout3.dxvk.conf)
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GAME_DIR=""
-DLL_PATH="$ROOT/build-pe-d3d9/d3d9.dll"
+DLL_PATH="$ROOT/build-pe-d3d9-x86/d3d9.dll"
 PROFILE_PATH="$ROOT/tools/fallout3/fallout3.dxvk.conf"
 DO_BUILD=0
 
@@ -52,10 +55,10 @@ fi
 
 if [ ! -f "$DLL_PATH" ]; then
   if [ "$DO_BUILD" -eq 1 ]; then
-    "$ROOT/scripts/build-pe-d3d9.sh"
+    "$ROOT/scripts/build-pe-d3d9.sh" --arch x86
   else
     echo "error: d3d9.dll not found: $DLL_PATH" >&2
-    echo "Run ./scripts/build-pe-d3d9.sh or pass --build." >&2
+    echo "Run ./scripts/build-pe-d3d9.sh --arch x86 or pass --build." >&2
     exit 1
   fi
 fi
@@ -65,9 +68,18 @@ if [ ! -f "$PROFILE_PATH" ]; then
   exit 1
 fi
 
-if ! file "$DLL_PATH" | grep -Eq 'PE32\+ executable \(DLL\)|PE32 executable \(DLL\)'; then
+DLL_FILE_TYPE="$(file "$DLL_PATH")"
+if ! printf '%s' "$DLL_FILE_TYPE" | grep -Eq 'PE32\+ executable \(DLL\)|PE32 executable \(DLL\)'; then
   echo "error: $DLL_PATH is not a Windows PE DLL" >&2
-  file "$DLL_PATH" >&2 || true
+  printf '%s\n' "$DLL_FILE_TYPE" >&2
+  exit 1
+fi
+
+# Fallout 3 is 32-bit; a 64-bit (PE32+) d3d9.dll cannot be loaded by it. Reject
+# it early instead of failing opaquely at game launch.
+if printf '%s' "$DLL_FILE_TYPE" | grep -q 'PE32+ executable'; then
+  echo "error: $DLL_PATH is a 64-bit DLL, but Fallout 3 is 32-bit." >&2
+  echo "Rebuild with: ./scripts/build-pe-d3d9.sh --arch x86" >&2
   exit 1
 fi
 
