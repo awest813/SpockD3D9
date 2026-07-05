@@ -68,6 +68,89 @@ registry, and threading. SpockD3D9 provides only the D3D9 -> Vulkan translation.
    - `D3D9: CreateDeviceEx OK (` — device created
    - Main menu renders and is interactive
 
+## Cosmos (Whisky-family) bottle walkthrough
+
+Cosmos is a Whisky-family Wine wrapper for Apple Silicon that manages bottles and
+exposes graphics-backend / DLL-override toggles. SpockD3D9 plugs in as a native
+(non-builtin) `d3d9.dll` so the path is **D3D9 → Vulkan → MoltenVK → Metal**
+instead of the wrapper's own D3DMetal/DXVK. See also
+[docs/MACOS_TESTING.md §3](../../docs/MACOS_TESTING.md).
+
+### Two Cosmos gotchas to settle first
+
+1. **32-bit support must be on.** Dragonshard is a 32-bit process, and 32-bit is
+   the historical sticking point for Apple Silicon Wine wrappers. The bottle's
+   Wine must have new-WoW64 (32-on-64) support. Confirm Cosmos launches the
+   game's *unmodified* launcher before adding SpockD3D9 — if no 32-bit `.exe`
+   runs, that is a host blocker, not a translation bug.
+2. **Cosmos's own D3D backend will shadow our DLL.** If Cosmos keeps translating
+   `d3d9` itself (D3DMetal/GPTK or bundled DXVK), it intercepts before our DLL
+   loads. Force `d3d9` to native and leave the bottle's Vulkan (winevulkan →
+   MoltenVK) path intact — our PE DLL calls `vkCreateWin32SurfaceKHR`.
+
+### 0. Get the 32-bit DLL from CI
+
+```bash
+cd ~/Downloads
+unzip spockd3d9-pe-d3d9-x86-*.zip   # -> d3d9.dll
+file d3d9.dll                        # must say PE32 executable (DLL) ... Intel 80386 (not PE32+)
+```
+
+### 1. Locate the game folder inside the bottle
+
+In Cosmos: select the bottle → **Open in Finder**. The game lives under
+`drive_c` (GOG default `drive_c/GOG Games/...`). Capture it:
+
+```bash
+GAME_DIR="$HOME/Library/Containers/<cosmos-container>/Bottles/<id>/drive_c/GOG Games/Dungeons and Dragons - Dragonshard"
+ls "$GAME_DIR"/Dragonshard.exe
+```
+
+### 2. Install the override + profile
+
+```bash
+cp ~/Downloads/d3d9.dll "$GAME_DIR/"
+cp dragonshard.dxvk.conf "$GAME_DIR/dxvk.conf"
+```
+
+### 3. Configure the bottle (Cosmos GUI)
+
+- **DLL Overrides**: add `d3d9` → **Native then Builtin** (`n,b`).
+- **Graphics / D3D backend**: turn **off** Cosmos's built-in D3D9 translation so
+  it does not handle `d3d9`; leave Vulkan/MoltenVK intact.
+- **Environment variables** (per-bottle):
+  ```
+  WINEDLLOVERRIDES = d3d9=n,b
+  DXVK_LOG_LEVEL   = info
+  DXVK_LOG_PATH    = <GAME_DIR>
+  MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS = 0
+  ```
+  Add `DYLD_LIBRARY_PATH = $(brew --prefix molten-vk)/lib` only if Vulkan is not
+  already wired inside the bottle.
+
+### 4. Launch and confirm
+
+Run `Dragonshard.exe` from Cosmos (the game exe, not a re-installer), then:
+
+```bash
+grep -E "DXVK:|CreateDeviceEx OK|No adapters" "$GAME_DIR"/d3d9.log
+```
+
+- `DXVK:` banner → our DLL loaded (if you see Wine's builtin d3d9, revisit 3).
+- adapter enumeration succeeds → MoltenVK reachable.
+- `D3D9: CreateDeviceEx OK (` → device created (V3).
+- menu renders + mouse works → boot-to-menu (V4).
+
+### Cosmos troubleshooting
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| No `.exe` starts, no DXVK line | 32-bit unsupported by the bottle's Wine (WoW64) — host blocker |
+| Wine builtin d3d9 in log, not `DXVK:` | Cosmos D3D backend still owns d3d9, or override not `n,b` |
+| `DXVK: No adapters found` | Bottle Vulkan not reaching MoltenVK — ensure winevulkan + `DYLD_LIBRARY_PATH` |
+| "not a valid Win32 application" | 64-bit DLL in a 32-bit game — re-check `file d3d9.dll` says `PE32` |
+| Black screen after `CreateDeviceEx OK` | Shader compile — relaunch (cache warms); `DXVK_LOG_LEVEL=debug` |
+
 ## Notes
 
 - Dragonshard's launcher/settings dialog is historically fragile on modern
