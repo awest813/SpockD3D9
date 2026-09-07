@@ -122,9 +122,19 @@ export DXVK_WSI_DRIVER=SDL3
 
 On success it prints `d3d9-clear: OK` and exits with code 0.
 
+Two more validation tools install alongside it: the `d3d9-gamebryo-probe`
+(Gamebryo-style device/format/draw coverage plus a frame-shape loop modeled
+on a real traced Fallout: New Vegas frame) and `dxso-corpus`
+(`--selftest` compiles built-in SM1–3 fixtures through the DXSO compiler;
+`--sdp <game>/Data/Shaders` batch-compiles a real title's shipped shaders
+with no GPU — see [docs/MACOS_TESTING.md §2b](docs/MACOS_TESTING.md)).
+
 For a one-command local validation pass (build + smoke test), use
-[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh). The full macOS
-testing checklist — native build, PE cross-compile, and Fallout 3 hosting — is
+[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh) (`--no-rebuild`
+reuses the previous build). Check what your machine is missing for testing
+with [`scripts/spock-doctor.sh`](scripts/spock-doctor.sh). The full macOS
+testing checklist — native build, PE cross-compile, host-boundary smoke test,
+shader-corpus pre-flight, and Fallout 3 hosting — is
 in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).
 
 ### Cross-Architecture Build

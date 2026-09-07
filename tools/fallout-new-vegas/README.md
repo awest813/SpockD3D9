@@ -99,11 +99,13 @@ section (`probeFrameShape`) reproduces these ratios at 1:50 scale in CI.
 ### Shader corpus pre-flight
 
 FNV ships ~15,535 SM1–3 shaders in `Data/Shaders/*.sdp`. Before the first
-hosted run, validate that SpockD3D9's DXSO compiler accepts all of them:
+hosted run, validate that SpockD3D9's DXSO compiler accepts all of them
+(after `./scripts/test-macos-native.sh`, the tool installs next to the
+smoke binaries):
 
 ```bash
-./build-native-test/tests/dxso-corpus --sdp "<FNV install>/Data/Shaders"
-# or any meson build dir containing the dxso-corpus target
+"$(find build-test -name dxso-corpus -type f | head -1)" \
+  --sdp "<FNV install>/Data/Shaders"
 ```
 
 See [docs/MACOS_TESTING.md §2b](../../docs/MACOS_TESTING.md).

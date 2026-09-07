@@ -80,8 +80,19 @@ namespace {
 
     void recordFailure(const std::string& sig) {
       failed++;
-      // Keep histogram keys bounded
-      failureHistogram[sig.substr(0, 100)]++;
+      // Histogram keys must be single-line and CSV-safe (the --report file
+      // wraps them in quotes but does not escape embedded ones).
+      std::string clean;
+      clean.reserve(sig.size());
+      for (char c : sig) {
+        if (c == '"' || c == ',')
+          clean += ' ';
+        else if (static_cast<unsigned char>(c) >= 0x20)
+          clean += c;
+        if (clean.size() >= 100)
+          break;
+      }
+      failureHistogram[clean.empty() ? "<empty signature>" : clean]++;
     }
   };
 
@@ -152,6 +163,11 @@ namespace {
     return major >= 1 && major <= 3;
   }
 
+  // Guard padding appended to loaded buffers (see loadWords): the scanner
+  // must ignore it so a trailing version token still counts as unbounded
+  // noise instead of compiling an empty shader against the padding.
+  constexpr size_t kLoadPadWords = 8;
+
   std::vector<uint32_t> loadWords(const fs::path& path, bool& ok) {
     ok = false;
     std::ifstream file(path, std::ios::binary);
@@ -164,7 +180,10 @@ namespace {
 
     // Token streams are whole u32s; a ragged tail cannot contain a shader.
     const size_t wordCount = bytes.size() / 4;
-    std::vector<uint32_t> words(wordCount);
+    // Guard padding: the DXSO decoder walks to the next end token with no
+    // blob bound, so a malformed final shader must not run off the buffer.
+    // 0x0000FFFF is never a version token, so the scanner ignores it.
+    std::vector<uint32_t> words(wordCount + kLoadPadWords, 0x0000FFFF);
     if (wordCount)
       std::memcpy(words.data(), bytes.data(), wordCount * 4);
 
@@ -179,7 +198,9 @@ namespace {
       std::fprintf(stderr, "dxso-corpus: cannot open %s\n", path.string().c_str());
       return;
     }
-    const size_t count = words.size();
+    // Scan only the file's own words; the appended guard padding is for
+    // decoder safety, not for blob accounting.
+    const size_t count = words.size() - kLoadPadWords;
 
     size_t i = 0;
     size_t compiledInFile = 0;
@@ -216,10 +237,41 @@ namespace {
       scanSdpFile(path);
       return;
     }
+
+    // Collect this directory's .sdp files.
+    std::vector<fs::path> files;
     for (const auto& entry : fs::recursive_directory_iterator(path)) {
       if (entry.is_regular_file() && entry.path().extension() == ".sdp")
-        scanSdpFile(entry.path());
+        files.push_back(entry.path());
     }
+
+    // Ease of use: given a game root (e.g. "Fallout New Vegas") with no
+    // .sdp at the top level, descend into the canonical Data/Shaders layout.
+    if (files.empty()) {
+      for (const char* sub : { "Data/Shaders", "data/shaders", "Shaders" }) {
+        const fs::path candidate = path / sub;
+        if (!fs::is_directory(candidate))
+          continue;
+        std::printf("dxso-corpus: no *.sdp under %s — descending into %s\n",
+                    path.string().c_str(), candidate.string().c_str());
+        for (const auto& entry : fs::recursive_directory_iterator(candidate)) {
+          if (entry.is_regular_file() && entry.path().extension() == ".sdp")
+            files.push_back(entry.path());
+        }
+        if (!files.empty())
+          break;
+      }
+    }
+
+    if (files.empty()) {
+      std::fprintf(stderr,
+        "dxso-corpus: no *.sdp files under %s (point at Data/Shaders "
+        "or the game root)\n", path.string().c_str());
+      return;
+    }
+
+    for (const auto& file : files)
+      scanSdpFile(file);
   }
 
   // ---- DXVK_SHADER_DUMP_PATH dump scanning -------------------------------

@@ -15,13 +15,28 @@ For the experimental PE `d3d9.dll` cross-build:
 brew install mingw-w64
 ```
 
+## 0. Environment readiness (doctor)
+
+Before anything else, run the doctor — it checks build tools, the MoltenVK
+ICD (including custom Homebrew prefixes such as `~/homebrew`), windowing
+libs, the MinGW cross-toolchain, a Wine-family host, and any already-built
+artifacts, and tells you exactly what to fix:
+
+```bash
+./scripts/spock-doctor.sh
+```
+
+PASS lines are ready; WARN lines only matter for the steps they name; MISS
+lines block the native path (exit code 1).
+
 ## 1. Native build + smoke test (blessed path)
 
 This validates the macOS `libdxvk_d3d9.dylib` and the fixed-function shader
 pipeline (including `D3DRS_WRAP0–15`).
 
 ```bash
-./scripts/test-macos-native.sh
+./scripts/test-macos-native.sh            # full build + all smoke binaries
+./scripts/test-macos-native.sh --no-rebuild   # reuse the existing build-test/
 ```
 
 Or manually:
@@ -120,20 +135,22 @@ GPU, host, or game process — catching DXSO gaps before they surface as
 first-boot black screens:
 
 ```bash
-# CI-runnable fixtures (also what the CI native job runs):
-<build-dir>/tests/dxso-corpus --selftest
+# CI-runnable fixtures (also run by ./scripts/test-macos-native.sh):
+$(find build-test -name dxso-corpus -type f | head -1) --selftest
 
 # Real corpus from a legally-owned Fallout: New Vegas / Fallout 3 install
 # (~15,535 SM1-3 shaders in Data/Shaders/*.sdp):
-<build-dir>/tests/dxso-corpus --sdp "<game>/Data/Shaders"
+$(find build-test -name dxso-corpus -type f | head -1) --sdp "<game>/Data/Shaders"
 
 # Shaders collected from any SpockD3D9 run via DXVK_SHADER_DUMP_PATH:
-<build-dir>/tests/dxso-corpus --dump "<dump dir>"
+$(find build-test -name dxso-corpus -type f | head -1) --dump "<dump dir>"
 ```
 
 **Pass criteria:** exit 0 — every bounded shader compiled. Failures print a
 histogram keyed by error signature (scan noise — version tokens without end
 tokens inside `.sdp` packages — is counted separately and never fails).
+DXSO warnings and per-shader diagnostics also land in `dxso-corpus_d3d9.log`
+in the working directory (DXVK file logging; gitignored).
 
 Run this against the target title's shader set before its first hosted boot;
 a failure here predicts a `CreatePixelShader`-time black screen and is much
@@ -191,6 +208,18 @@ The dxvk.conf keys that matter most in a bottle are in section 6; the title
 profiles under `tools/*/` already set them.
 
 ## 4. Fallout 3 boot-to-menu (hosted)
+
+**Pre-flight checklist — run these in order before the first retail attempt.**
+Each step isolates a failure layer so a later problem is never ambiguous:
+
+| # | Step | Validates | If it fails |
+|---|------|-----------|-------------|
+| 0 | `./scripts/spock-doctor.sh` (§0) | Environment: tools, MoltenVK ICD, windowing, cross-toolchain, host | Fix the MISS lines before anything else |
+| 1 | `./scripts/test-macos-native.sh` | Translator on MoltenVK, no host in the loop (clear, probe incl. frame-shape, corpus selftest) | Translator regression — debug natively, cheapest loop |
+| 2 | `./scripts/build-pe-d3d9.sh --arch x86` | PE DLL + smoke exe build, correct bitness | Build/toolchain issue |
+| 3 | `WINE=… WINEPREFIX=… ./scripts/run-pe-smoke.sh --arch x86` (§2a) | Host boundary: override load, HWND surface, winevulkan → MoltenVK, `CreateDevice`, `Present` — no game needed | Host/bottle issue (32-bit WoW64, DLL shadowing, Vulkan wiring) — fix before touching the game |
+| 4 | `dxso-corpus --sdp "<game>/Data/Shaders"` (§2b, if the title ships shaders) | DXSO accepts every real shader of the target title | Translator gap with a shader-level error signature |
+| 5 | Prepare + launch the title (below), read the log with `check-boot-logs.sh` | Full V1–V4 ladder | Now a failure means game/translator interaction — attach everything above to the report |
 
 Automated helpers (after PE build):
 
