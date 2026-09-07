@@ -15,13 +15,28 @@ For the experimental PE `d3d9.dll` cross-build:
 brew install mingw-w64
 ```
 
+## 0. Environment readiness (doctor)
+
+Before anything else, run the doctor — it checks build tools, the MoltenVK
+ICD (including custom Homebrew prefixes such as `~/homebrew`), windowing
+libs, the MinGW cross-toolchain, a Wine-family host, and any already-built
+artifacts, and tells you exactly what to fix:
+
+```bash
+./scripts/spock-doctor.sh
+```
+
+PASS lines are ready; WARN lines only matter for the steps they name; MISS
+lines block the native path (exit code 1).
+
 ## 1. Native build + smoke test (blessed path)
 
 This validates the macOS `libdxvk_d3d9.dylib` and the fixed-function shader
 pipeline (including `D3DRS_WRAP0–15`).
 
 ```bash
-./scripts/test-macos-native.sh
+./scripts/test-macos-native.sh            # full build + all smoke binaries
+./scripts/test-macos-native.sh --no-rebuild   # reuse the existing build-test/
 ```
 
 Or manually:
@@ -134,6 +149,8 @@ $(find build-test -name dxso-corpus -type f | head -1) --dump "<dump dir>"
 **Pass criteria:** exit 0 — every bounded shader compiled. Failures print a
 histogram keyed by error signature (scan noise — version tokens without end
 tokens inside `.sdp` packages — is counted separately and never fails).
+DXSO warnings and per-shader diagnostics also land in `dxso-corpus_d3d9.log`
+in the working directory (DXVK file logging; gitignored).
 
 Run this against the target title's shader set before its first hosted boot;
 a failure here predicts a `CreatePixelShader`-time black screen and is much
@@ -197,6 +214,7 @@ Each step isolates a failure layer so a later problem is never ambiguous:
 
 | # | Step | Validates | If it fails |
 |---|------|-----------|-------------|
+| 0 | `./scripts/spock-doctor.sh` (§0) | Environment: tools, MoltenVK ICD, windowing, cross-toolchain, host | Fix the MISS lines before anything else |
 | 1 | `./scripts/test-macos-native.sh` | Translator on MoltenVK, no host in the loop (clear, probe incl. frame-shape, corpus selftest) | Translator regression — debug natively, cheapest loop |
 | 2 | `./scripts/build-pe-d3d9.sh --arch x86` | PE DLL + smoke exe build, correct bitness | Build/toolchain issue |
 | 3 | `WINE=… WINEPREFIX=… ./scripts/run-pe-smoke.sh --arch x86` (§2a) | Host boundary: override load, HWND surface, winevulkan → MoltenVK, `CreateDevice`, `Present` — no game needed | Host/bottle issue (32-bit WoW64, DLL shadowing, Vulkan wiring) — fix before touching the game |

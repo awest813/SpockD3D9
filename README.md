@@ -130,7 +130,9 @@ on a real traced Fallout: New Vegas frame) and `dxso-corpus`
 with no GPU — see [docs/MACOS_TESTING.md §2b](docs/MACOS_TESTING.md)).
 
 For a one-command local validation pass (build + smoke test), use
-[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh). The full macOS
+[`scripts/test-macos-native.sh`](scripts/test-macos-native.sh) (`--no-rebuild`
+reuses the previous build). Check what your machine is missing for testing
+with [`scripts/spock-doctor.sh`](scripts/spock-doctor.sh). The full macOS
 testing checklist — native build, PE cross-compile, host-boundary smoke test,
 shader-corpus pre-flight, and Fallout 3 hosting — is
 in [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md).

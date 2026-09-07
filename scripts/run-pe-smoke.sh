@@ -21,6 +21,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/spock-common.sh
+source "$ROOT/scripts/lib/spock-common.sh"
+spock_ensure_brew_bin_on_path || true
 
 ARCH="x86"
 FRAMES=30
@@ -147,21 +150,10 @@ if [ -n "$WINE_PREFIX" ]; then
   export WINEPREFIX="$WINE_PREFIX"
 fi
 
-BREW_PREFIX="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null || true)}"
-if [ -n "$BREW_PREFIX" ]; then
-  for icd in \
-    "$BREW_PREFIX/share/vulkan/icd.d/MoltenVK_icd.json" \
-    "$BREW_PREFIX/etc/vulkan/icd.d/MoltenVK_icd.json" \
-    /opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json \
-    /opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json \
-    /usr/local/share/vulkan/icd.d/MoltenVK_icd.json \
-    /usr/local/etc/vulkan/icd.d/MoltenVK_icd.json; do
-    if [ -f "$icd" ]; then
-      export VK_ICD_FILENAMES="$icd"
-      export VK_DRIVER_FILES="$icd"
-      break
-    fi
-  done
+# Custom-prefix-aware MoltenVK ICD discovery (~/homebrew, HOMEBREW_PREFIX,
+# /opt/homebrew, /usr/local); a pre-set VK_ICD_FILENAMES is respected.
+if ! spock_export_moltenvk_icd; then
+  echo "note: no MoltenVK ICD found via Homebrew — relying on host wiring" >&2
 fi
 
 LOG_FILE="$RUN_DIR/pe-smoke.log"
@@ -183,6 +175,12 @@ fi
 
 if ! command -v "$WINE_BIN" >/dev/null 2>&1; then
   echo "error: $WINE_BIN not found. Install a Wine-family host or pass --wine." >&2
+  exit 1
+fi
+
+# Resolve wine to an absolute path — the run below cd's into the staging dir.
+if ! WINE_BIN="$(spock_abs_cmd "$WINE_BIN")"; then
+  echo "error: could not resolve wine binary: $WINE_BIN" >&2
   exit 1
 fi
 

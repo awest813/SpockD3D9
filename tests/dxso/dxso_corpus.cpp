@@ -80,8 +80,19 @@ namespace {
 
     void recordFailure(const std::string& sig) {
       failed++;
-      // Keep histogram keys bounded
-      failureHistogram[sig.substr(0, 100)]++;
+      // Histogram keys must be single-line and CSV-safe (the --report file
+      // wraps them in quotes but does not escape embedded ones).
+      std::string clean;
+      clean.reserve(sig.size());
+      for (char c : sig) {
+        if (c == '"' || c == ',')
+          clean += ' ';
+        else if (static_cast<unsigned char>(c) >= 0x20)
+          clean += c;
+        if (clean.size() >= 100)
+          break;
+      }
+      failureHistogram[clean.empty() ? "<empty signature>" : clean]++;
     }
   };
 
@@ -226,10 +237,41 @@ namespace {
       scanSdpFile(path);
       return;
     }
+
+    // Collect this directory's .sdp files.
+    std::vector<fs::path> files;
     for (const auto& entry : fs::recursive_directory_iterator(path)) {
       if (entry.is_regular_file() && entry.path().extension() == ".sdp")
-        scanSdpFile(entry.path());
+        files.push_back(entry.path());
     }
+
+    // Ease of use: given a game root (e.g. "Fallout New Vegas") with no
+    // .sdp at the top level, descend into the canonical Data/Shaders layout.
+    if (files.empty()) {
+      for (const char* sub : { "Data/Shaders", "data/shaders", "Shaders" }) {
+        const fs::path candidate = path / sub;
+        if (!fs::is_directory(candidate))
+          continue;
+        std::printf("dxso-corpus: no *.sdp under %s — descending into %s\n",
+                    path.string().c_str(), candidate.string().c_str());
+        for (const auto& entry : fs::recursive_directory_iterator(candidate)) {
+          if (entry.is_regular_file() && entry.path().extension() == ".sdp")
+            files.push_back(entry.path());
+        }
+        if (!files.empty())
+          break;
+      }
+    }
+
+    if (files.empty()) {
+      std::fprintf(stderr,
+        "dxso-corpus: no *.sdp files under %s (point at Data/Shaders "
+        "or the game root)\n", path.string().c_str());
+      return;
+    }
+
+    for (const auto& file : files)
+      scanSdpFile(file);
   }
 
   // ---- DXVK_SHADER_DUMP_PATH dump scanning -------------------------------

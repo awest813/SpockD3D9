@@ -114,18 +114,9 @@ if [ "$NO_OVERLAY" -eq 1 ]; then
   export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}gameoverlayrenderer=d;gameoverlayrenderer64=d"
 fi
 
-BREW_PREFIX="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null || true)}"
-if [ -n "$BREW_PREFIX" ]; then
-  for icd in \
-    "$BREW_PREFIX/share/vulkan/icd.d/MoltenVK_icd.json" \
-    /opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json \
-    /usr/local/share/vulkan/icd.d/MoltenVK_icd.json; do
-    if [ -f "$icd" ]; then
-      export VK_ICD_FILENAMES="$icd"
-      export VK_DRIVER_FILES="$icd"
-      break
-    fi
-  done
+# Custom-prefix-aware MoltenVK ICD discovery; pre-set VK_ICD_FILENAMES wins.
+if ! spock_export_moltenvk_icd; then
+  echo "warning: no MoltenVK ICD found via Homebrew prefixes; relying on host wiring" >&2
 fi
 
 LOG_FILE="${BOOT_LOG:-$GAME_DIR/${LOG_SLUG}-spockd3d9.log}"
