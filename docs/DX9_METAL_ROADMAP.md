@@ -24,7 +24,7 @@ Reference implementations for direct Metal translation:
 | Project | Scope | Status |
 |---------|-------|--------|
 | [dxmt](https://github.com/3Shain/dxmt) | D3D10/11 → Metal via Wine | Mature reference for the Metal backend shape (resources, encoders, winemetal) |
-| [d9mt](https://github.com/neo773/d9mt) | D3D9 → Metal via Wine | Research project: vendored DXVK D3D9 frontend (DXSO → SPIR-V) + SPIRV-Cross to MSL + DXMT's winemetal bridge across the wow64 boundary; Apple Silicon only; **one** tested game (GTA IV, ~50–90 fps on an M1 Max); persistent metallib disk cache, out-of-process shader compilation, async pipeline compilation, command batching, buffer suballocation |
+| [d9mt](https://github.com/neo773/d9mt) | D3D9 → Metal via Wine | Research project: vendored DXVK D3D9 frontend (DXSO → SPIR-V) + SPIRV-Cross to MSL + DXMT's winemetal bridge across the wow64 boundary; Apple Silicon only; **one** tested game (GTA IV, ~50–90 fps on an M1 Max); shader compilation via in-process `newLibraryWithSource` + Apple's MTLCompilerService daemon cache; async PSO workers with pre-warm cache, command batching, buffer suballocation |
 | [dx9mt](https://github.com/theodorechapman/dx9mt) | 32-bit D3D9 → Metal via Wine | Built for Fallout: New Vegas with a different Wine boundary (shared-memory frame replay, no DXVK frontend); in-game rendering reported at early quality (~15 fps dense exteriors on M4 Pro) |
 
 There is still no *general-purpose* mature "dxmt for D3D9" — each project above has exactly one tested title — so SpockD3D9's DXSO layer and fixed-function paths remain the in-repo starting point. But d9mt is a working existence proof for most of Track B (its shader path is exactly Phase 4a), which makes Track B a study-and-adapt problem rather than green-field invention. Their existence does not change the gating: Track A retail validation (gate G0) still comes first.
@@ -202,8 +202,8 @@ There is still no *general-purpose* mature "dxmt for D3D9" — each project abov
 
 | Task | Description | Reference prior art |
 |------|-------------|---------------------|
-| 4.1 | MSL pipeline cache (hash DXSO + FF key + render state) | d9mt: on-disk metallib cache (`~/Library/Caches/d9mt/`, `D9MT_METALLIB_CACHE`), compiled out-of-process so each shader compiles once ever and reloads without stutter |
-| 4.2 | `MTLRenderPipelineState` / depth-stencil / sampler from D3D9 state blocks | d9mt: async pipeline-state creation in its native arm64 unixlib |
+| 4.1 | MSL pipeline cache (hash DXSO + FF key + render state) | **d9mt's measured outcome (source, not README):** it built a SQLite-backed metallib disk cache, then *bypassed and removed it* in favor of in-process async `newLibraryWithSource` + Apple's **MTLCompilerService daemon cache**, which already persists compiled shaders cross-process (104 ms cold → 0.5 ms warm). Design Track B around the daemon first; a custom metallib cache is the fallback, not the reference. Key the cache on DXSO + FF key + render state + toolchain epoch either way |
+| 4.2 | `MTLRenderPipelineState` / depth-stencil / sampler from D3D9 state blocks | d9mt: async PSO workers (1–4 threads at lowest priority; draws on not-ready pipelines are skipped for a frame or two) + a **persistent PSO pre-warm state cache** to kill load-time pop-in — the pre-warm idea survived its cache rework |
 | 4.3 | Constant buffer layout ↔ Metal buffer bindings (argument buffers vs discrete buffers) | dxmt argument-buffer design; MoltenVK tier-2 experience from Track A |
 | 4.4 | Validator parity with `d3d9_shader_validator.cpp` | — |
 
@@ -232,11 +232,11 @@ There is still no *general-purpose* mature "dxmt for D3D9" — each project abov
 
 | Task | Description | Reference prior art |
 |------|-------------|---------------------|
-| 6.1 | On-disk MSL + pipeline cache (analogous to `dxvk.enableShaderCache`) | d9mt metallib disk cache (each shader compiles once, ever) |
-| 6.2 | Argument buffers / heap residency tuning | dxmt / d9mt argument-buffer usage; MoltenVK tier-2 findings from Track A |
+| 6.1 | On-disk MSL + pipeline cache (analogous to `dxvk.enableShaderCache`) | d9mt's SQLite metallib cache was removed in favor of the MTLCompilerService daemon (see 4.1); Track B should budget for daemon-first, disk-cache-second |
+| 6.2 | Argument buffers / heap residency tuning | dxmt / d9mt argument-buffer usage; d9mt also found an O(1) flat residency set (was O(n²) per pass) and per-sampler 2048-entry LRU worth copying; MoltenVK tier-2 findings from Track A |
 | 6.3 | Per-title Metal profiles (`tools/macos/*.metal.conf` or shared `dxvk.conf` keys) | — |
-| 6.4 | PE `d3d9.dll` linked against Metal backend (if Windows host path still needed) | d9mt crosses the Wine boundary via DXMT's winemetal unixlib instead of winevulkan — the fallback design if the 32-bit winevulkan → MoltenVK chain proves unreliable |
-| 6.5 | Benchmark vs Track A on same titles (frame time, shader hitches, memory) | d9mt reports command batching + buffer suballocation + clean frame pacing as its main CPU-side wins |
+| 6.4 | PE `d3d9.dll` linked against Metal backend (if Windows host path still needed) | d9mt crosses the Wine boundary via DXMT's winemetal unixlib instead of winevulkan — the fallback design if the 32-bit winevulkan → MoltenVK chain proves unreliable (see the d9mt study notes below) |
+| 6.5 | Benchmark vs Track A on same titles (frame time, shader hitches, memory) | d9mt reports command batching + buffer suballocation + clean frame pacing as its main CPU-side wins (per-draw 3.58 → 2.58 µs; p99 59.8 → 37.2 ms) |
 
 **Success metrics:**
 
@@ -285,6 +285,70 @@ These items improve Track A **without** waiting for Track B and should stay prio
 | **G1** | Is SPIRV-Cross MSL quality sufficient for SM2/SM3 + FF? | Invest in Phase 4c or title-specific patches |
 | **G2** | Is RHI abstraction stable after Phase 1? | Freeze API before Phase 4 shader work |
 | **G3** | Does Track B beat Track A on shader-bound scenes? | Keep Track A as default; Track B optional build |
+
+---
+
+## d9mt / dx9mt study notes (Track B reference material)
+
+Design facts extracted from both projects' implementations (see the
+relationship table above for licensing posture: **study, don't copy**).
+None of this changes gate G0.
+
+### Wine boundary (winemetal) — Phase 6.4 reference
+
+- d9mt's PE side (32-bit, DXVK frontend + backend, running under Rosetta 2)
+  reaches native Metal through two paths: DXMT's `winemetal` PE builtins
+  (Win32-exported `MTL*` functions marshalled via `__wine_unix_call`) plus a
+  small custom unixlib verb for the gaps.
+- The custom-call ABI rules that made wow64 work: **every struct field
+  fixed-width, all pointers zero-extended `uint64_t`**, so 32-bit PE and
+  64-bit unix parameter layouts are byte-identical and one call table serves
+  both.
+- **Crossing economics:** naive per-command calls cost 8–15 Rosetta
+  crossings per draw. d9mt batches render commands into a 256 KiB arena and
+  crosses once per flush (~100+ draws) — the single largest CPU win after
+  async PSO compilation. Any Spock Track B winemetal design must batch at
+  the same granularity or it will lose to Track A.
+- dx9mt demonstrates the alternative (shared-memory frame replay, seqlock +
+  triple-buffer, 256 MB/frame, 2048-draw cap) — viable for a single-title
+  experiment, but it discards pipelining and grows with draw count; not the
+  shape Spock wants, though its PE32/ARM64 binary-contract discipline
+  (explicit padding, double-compiled bridge validation) is worth imitating.
+
+### Metal constraint checklist — Phase 3/5 risk register
+
+Features d9mt flags as D3D9-surface risks on Metal (expect MoltenVK to be
+eating similar costs today on Track A):
+
+| Constraint | Consequence |
+|------------|-------------|
+| No USCALED/SSCALED vertex formats | Highest-confidence correctness risk; needs conversion on upload |
+| Packed D24S8/D32S8 | De/re-interleave copies for depth-stencil staging |
+| BC ↔ non-BC view aliasing forbidden | D3D9's loose view rules need explicit copies |
+| Arbitrary float border colors unsupported | Clamp/special-case D3DTADDRESS_BORDER |
+| Non-seamless cube filtering | Masked in caps; visual differences possible |
+| No geometry shaders | SWVP geometry-shader emulation unavailable (`vertexPipelineStoresAndAtomics = false` workaround) |
+| Spec-constant PSO explosion | Per-state specialization multiplies pipeline count; d9mt pins constants where possible |
+| Sampler LOD bias, depth/MSAA view swizzles | Permanent deviations vs D3D9 semantics |
+
+### dx9mt's D3D9 semantics findings (input to DXSO hardening)
+
+Validated against Fallout: New Vegas's 15,535 shipped shaders — the corpus
+harness in `tests/dxso/` now gives SpockD3D9 the same class of coverage on
+its own DXSO path:
+
+- Write-mask semantics ("destination component k receives source swizzle
+  component k") were the single largest miscompile class — 22% of FNV's
+  instructions use non-prefix masks (`.yzw`, `.w`, …). Covered by the
+  `ps_2_0-writemask-yzw` corpus fixture.
+- Fixed-function **alpha test** and **table fog** are load-bearing for
+  Gamebryo (SpeedTree leaf cutouts, distance haze) — both are implemented
+  in SpockD3D9's DXSO/FF emitters and exercised by the gamebryo probe.
+- FNV draws **exclusively** via `DrawIndexedPrimitive` (1,411/frame) and
+  ignores the API's `MinVertexIndex`/`NumVertices` hints (real GPUs treat
+  them as hints) — the frame-shape probe section reflects this profile.
+- Gamebryo branches on adapter vendor/device IDs (dx9mt impersonates a GTX
+  280); `d3d9.customVendorId`/`customDeviceId` is the same lever here.
 
 ---
 
