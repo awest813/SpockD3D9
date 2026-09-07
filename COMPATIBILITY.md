@@ -29,6 +29,7 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 | **Fallout: New Vegas (Windows)** | **Blocked** | Gamebryo / D3D9 | Windows game compat | Benchmark target; profile shipped — shares Fallout 3's PE `d3d9.dll` blocker and Gamebryo validation path | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Dragon Age: Origins (Windows)** | **Blocked** | BioWare Eclipse / D3D9 | Windows game compat | Benchmark target; profile shipped — expands coverage beyond Gamebryo to an SM3-heavy RPG renderer | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Galactic Civilizations II (Windows)** | **Blocked** | Stardock strategy renderer / D3D9 | Windows game compat | Benchmark target; profile shipped — adds old-strategy UI, mode-picker, and map-rendering coverage | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
+| **Grand Theft Auto IV (Steam, Windows)** | **Blocked** | RAGE / D3D9 | Windows game compat | Benchmark target; profile shipped — hosting path de-risked by the d9mt project (GTA IV proven under Wine/Rosetta with a D3D9 replacement layer); 32-bit, needs xliveless + direct `GTAIV.exe` launch | [tools/gta-iv/README.md](tools/gta-iv/README.md) |
 
 ### Fallout 3 — key compatibility areas
 
@@ -69,6 +70,7 @@ CI validates every profile under `tools/**/*.dxvk.conf` against the options docu
 | **Fallout: New Vegas** | [`tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf`](tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf) | Gamebryo benchmark title |
 | **Dragon Age: Origins** | [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf) | SM3-heavy BioWare RPG |
 | **Galactic Civilizations II** | [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf) | Strategy UI / mode-picker coverage |
+| **Grand Theft Auto IV (RAGE)** | [`tools/gta-iv/gta-iv.dxvk.conf`](tools/gta-iv/gta-iv.dxvk.conf) | 32-bit RAGE title; hosting de-risked by d9mt; layers onto the compiled-in GTAIV/EFLC profile |
 
 ---
 

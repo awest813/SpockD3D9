@@ -37,7 +37,11 @@ namespace dxvk {
 
     determineShaderOptions();
 
-    if (env::getEnvVar("DXVK_SHADER_CACHE") != "0" && DxvkShader::getShaderDumpPath().empty())
+    // dxvk.enableShaderCache is the config-file gate; DXVK_SHADER_CACHE=0
+    // remains an env kill-switch, and dumping shaders disables the cache.
+    if (m_options.enableShaderCache
+     && env::getEnvVar("DXVK_SHADER_CACHE") != "0"
+     && DxvkShader::getShaderDumpPath().empty())
       m_shaderCache = DxvkShaderCache::getInstance();
 
     logBindingModel();

@@ -124,6 +124,14 @@ jobs:
         run_smoke d3d9-clear-sdl2
         run_smoke d3d9-gamebryo-probe
 
+        # DXSO shader-corpus fixtures (SM1-3 bytecode -> SPIR-V; no GPU
+        # needed). Real-game .sdp corpora are local-only (game data).
+        if [ -x "$LIB_DIR/dxso-corpus" ]; then
+          "$LIB_DIR/dxso-corpus" --selftest
+        else
+          echo "::warning::dxso-corpus not built; skipping corpus selftest."
+        fi
+
     - name: Smoke test MoltenVK auto-discovery (clean env)
       run: |
         LIB_DIR=$(find build -path '*/usr/lib' -type d 2>/dev/null | head -1)

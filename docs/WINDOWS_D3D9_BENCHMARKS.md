@@ -30,6 +30,11 @@ but cannot be loaded directly by an unmodified Windows game.
 | Fallout: New Vegas | `FalloutNV.exe` | 22380 (base) / 22490 (Ultimate) | `tools/fallout-new-vegas/fallout-new-vegas.dxvk.conf` |
 | Dragon Age: Origins | `daorigins.exe` | 47810 | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
 | Galactic Civilizations II | `GC2*.exe` | 3590 (Ultimate) | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
+| Grand Theft Auto IV | `GTAIV.exe` | 12210 (base) / 11340 (EFLC) | `tools/gta-iv/gta-iv.dxvk.conf` |
+
+GTA IV prefers a direct `GTAIV.exe` launch with the community xliveless stub
+(GFWL removal) over the launcher/Steam path — see
+[tools/gta-iv/README.md](../tools/gta-iv/README.md).
 
 The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
@@ -116,7 +121,36 @@ Include:
 
 1. Title, store/version, DLC/mod state
 2. macOS version, Mac model/chip/GPU, and MoltenVK version
-3. Host used to load the Windows executable
+3. Host used to load the Windows executable — include the **sync mode**
+   (`WINEMSYNC=1 WINEESYNC=0` msync vs default esync) since it measurably
+   changes pacing on Apple Silicon (see
+   [MACOS_TESTING.md §4a](MACOS_TESTING.md#4a-tested-windows-hosts-reference-matrix))
 4. SpockD3D9 commit, profile path, and any local profile edits
 5. `DXVK_LOG_LEVEL=info` logs, plus `debug` logs for crashes/device removal
 6. Highest milestone reached and the first failing subsystem
+7. The quantitative block below (once a title renders in-game)
+
+### Quantitative capture
+
+Capture a Wine FPS trace for a fixed gameplay window (≥ 3 minutes, same
+scene/route for comparability):
+
+```bash
+WINEDEBUG=-all,+timestamp,+fps wine Game.exe 2>&1 | tee run-fps.log
+./scripts/plot-benchmark.py run-fps.log --csv run-fps.csv --chart run-fps.png
+```
+
+Report:
+
+| Metric | Value |
+|--------|-------|
+| avg fps | *(from plot-benchmark.py)* |
+| 1% low fps | |
+| frametime p95 / p99 | |
+| draws/frame (approx.) | *(from engine stats or a DXVK debug log)* |
+| stack | host + sync mode + Rosetta 2 |
+| **wined3d baseline** | avg fps of the same scene on the host's builtin wined3d, matched settings — the fair comparison point (technique used by the dx9mt project for its FNV reporting) |
+
+Remember the 32-bit engine itself spends substantial time under Rosetta 2
+(~50 ms/frame for FNV's dense exteriors per dx9mt's attribution on an M4
+Pro); compare against the wined3d baseline rather than absolute numbers.

@@ -75,6 +75,11 @@ namespace dxvk {
     /// Whether to use custom sin/cos approximation
     Tristate lowerSinCos = Tristate::Auto;
 
+    /// Enables the on-disk shader IR cache
+    /// (<exe-hash>.dxvk.lut/.bin under the cache dir). The env
+    /// DXVK_SHADER_CACHE=0 additionally force-disables it.
+    bool enableShaderCache = true;
+
     /// Enables implicit resolves that are used to
     /// deal with MSAA-related undefined behaviour.
     bool enableImplicitResolves = true;

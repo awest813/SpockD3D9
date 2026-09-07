@@ -18,6 +18,10 @@
  *   - Render-to-texture (A8R8G8B8 RT + GetRenderTargetData)
  *   - MRT (2× A8R8G8B8, if NumSimultaneousRTs≥2)
  *   - GetFrontBufferData (logged after first Present, non-fatal)
+ *   - Frame-shape loop: state/draw churn ratios modeled on a real traced
+ *     Gamebryo frame (external Fallout: New Vegas per-call trace — see the
+ *     probeFrameShape comment for the ratios), incl. RT switches,
+ *     StretchRect composites, clip plane, Begin/EndScene
  *   - Present + Reset
  * Structure: a warm-up Clear+Present after CreateDevice establishes the swapchain;
  * each draw-based probe section calls flushFrame() (Clear+Present) to keep the
@@ -35,6 +39,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <vector>
 
 #if defined(D3D9_CLEAR_SDL3)
 #include <SDL3/SDL.h>
@@ -1229,6 +1234,345 @@ namespace {
       std::printf("d3d9-gamebryo-probe: TimestampQuery stalled (0x%08lx)\n", hr);
   }
 
+  // --- Frame-shape loop (modeled on a real traced Gamebryo frame) ---
+  //
+  // Ratios come from a per-call D3D9 trace of one dense Fallout: New Vegas
+  // frame (published by the dx9mt project, which used it to shape its own
+  // translator): ~1,411 DrawIndexedPrimitive (zero DrawPrimitive/UP),
+  // 3,947 VS-constant + 2,574 PS-constant sets, 2,184 SetSamplerState,
+  // 1,869 SetTexture, 1,092 SetRenderState, ~90 SetVertexShader/SetPixelShader,
+  // 71 SetVertexDeclaration, 28 SetViewport, 14 SetRenderTarget,
+  // 6 StretchRect (scene-composite chain), 15 Begin/EndScene pairs,
+  // 2 SetClipPlane, 1 Present.
+  //
+  // Scaled 1:50 per mini-frame (28 indexed draws + proportional state churn)
+  // so CI stays fast while exercising the same API pressure profile: churn
+  // between draws, offscreen RT passes, and a composite stretch back.
+
+  bool probeFrameShape(IDirect3DDevice9* device) {
+    constexpr int    kMiniFrames   = 30;
+    constexpr int    kDrawsPerMini = 28;   // 1,411 / 50
+    constexpr int    kQuads        = 16;   // shared geometry pool
+    constexpr uint32_t kBackW      = 1280; // matches the probe window
+    constexpr uint32_t kBackH      = 720;
+
+    // Shared geometry: kQuads quads, two vertices layouts via decls.
+    struct Vert { float x, y, z, nx, ny, nz, u, v; };
+    static const float kQuad = 0.22f;
+    std::vector<Vert> verts;
+    verts.reserve(kQuads * 4);
+    for (int q = 0; q < kQuads; q++) {
+      const float ox = -0.9f + (q % 8) * 0.25f;
+      const float oy = 0.8f - (q / 8) * 0.5f;
+      const Vert quad[4] = {
+        { ox,          oy,          0.5f, 0, 0, 1, 0, 0 },
+        { ox + kQuad,  oy,          0.5f, 0, 0, 1, 1, 0 },
+        { ox,          oy - kQuad,  0.5f, 0, 0, 1, 0, 1 },
+        { ox + kQuad,  oy - kQuad,  0.5f, 0, 0, 1, 1, 1 },
+      };
+      verts.insert(verts.end(), quad, quad + 4);
+    }
+
+    std::vector<uint16_t> indices;
+    indices.reserve(kQuads * 6);
+    for (int q = 0; q < kQuads; q++) {
+      const uint16_t b = uint16_t(q * 4);
+      const uint16_t quadIdx[6] = {
+        b, uint16_t(b + 1), uint16_t(b + 2),
+        uint16_t(b + 2), uint16_t(b + 1), uint16_t(b + 3),
+      };
+      indices.insert(indices.end(), quadIdx, quadIdx + 6);
+    }
+
+    IDirect3DVertexBuffer9* vb = nullptr;
+    HRESULT hr = device->CreateVertexBuffer(
+      UINT(verts.size() * sizeof(Vert)), 0, 0, D3DPOOL_MANAGED, &vb, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: FrameShape CreateVertexBuffer failed (0x%08lx)\n",
+                   static_cast<unsigned long>(hr));
+      return false;
+    }
+    void* vbPtr = nullptr;
+    vb->Lock(0, 0, &vbPtr, 0);
+    std::memcpy(vbPtr, verts.data(), verts.size() * sizeof(Vert));
+    vb->Unlock();
+
+    IDirect3DIndexBuffer9* ib = nullptr;
+    hr = device->CreateIndexBuffer(
+      UINT(indices.size() * sizeof(uint16_t)), 0, D3DFMT_INDEX16,
+      D3DPOOL_MANAGED, &ib, nullptr);
+    if (FAILED(hr)) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: FrameShape CreateIndexBuffer failed (0x%08lx)\n",
+                   static_cast<unsigned long>(hr));
+      vb->Release();
+      return false;
+    }
+    void* ibPtr = nullptr;
+    ib->Lock(0, 0, &ibPtr, 0);
+    std::memcpy(ibPtr, indices.data(), indices.size() * sizeof(uint16_t));
+    ib->Unlock();
+
+    // Two declarations (XYZ+NORMAL+TEX0 / XYZ+TEX0), FVF-less.
+    const D3DVERTEXELEMENT9 declXYZNT[] = {
+      { 0, 0,  D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+      { 0, 12, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL,   0 },
+      { 0, 24, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+      D3DDECL_END()
+    };
+    const D3DVERTEXELEMENT9 declXYZT[] = {
+      { 0, 0,  D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+      { 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+      D3DDECL_END()
+    };
+    IDirect3DVertexDeclaration9* decls[2] = { nullptr, nullptr };
+    if (FAILED(device->CreateVertexDeclaration(declXYZNT, &decls[0]))
+     || FAILED(device->CreateVertexDeclaration(declXYZT,  &decls[1]))) {
+      std::fprintf(stderr, "d3d9-gamebryo-probe: FrameShape CreateVertexDeclaration failed\n");
+      ib->Release(); vb->Release();
+      if (decls[0]) decls[0]->Release();
+      return false;
+    }
+
+    // Two textures alternating across 4 stages (1,869 SetTexture / frame).
+    IDirect3DTexture9* textures[2] = { nullptr, nullptr };
+    for (int t = 0; t < 2; t++) {
+      hr = device->CreateTexture(64, 64, 1, 0, D3DFMT_A8R8G8B8,
+        D3DPOOL_MANAGED, &textures[t], nullptr);
+      if (FAILED(hr)) {
+        std::fprintf(stderr, "d3d9-gamebryo-probe: FrameShape CreateTexture failed (0x%08lx)\n",
+                     static_cast<unsigned long>(hr));
+        decls[0]->Release(); decls[1]->Release(); ib->Release(); vb->Release();
+        if (t > 0) textures[0]->Release();
+        return false;
+      }
+      D3DLOCKED_RECT rect = { };
+      if (SUCCEEDED(textures[t]->LockRect(0, &rect, nullptr, 0))) {
+        uint32_t* row = static_cast<uint32_t*>(rect.pBits);
+        for (uint32_t y = 0; y < 64; y++)
+          for (uint32_t x = 0; x < 64; x++)
+            row[y * (rect.Pitch / 4) + x] = 0xFF000000u | (t ? 0x30C0A0u : 0xA040C0u);
+        textures[t]->UnlockRect(0);
+      }
+    }
+
+    // Offscreen RT + depth for RT-switch passes and the StretchRect chain.
+    IDirect3DTexture9*   rtTex   = nullptr;
+    IDirect3DSurface9*   rtSurf  = nullptr;
+    IDirect3DSurface9*   backbuf = nullptr;
+    device->GetRenderTarget(0, &backbuf);
+    hr = device->CreateTexture(256, 256, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
+      D3DPOOL_DEFAULT, &rtTex, nullptr);
+    if (SUCCEEDED(hr))
+      rtTex->GetSurfaceLevel(0, &rtSurf);
+
+    // Shaders: reuse the SM2 pair (passthrough VS + solid PS); the churn is
+    // the Set{Vertex,Pixel}Shader call rate (~90/frame), not unique programs.
+    static const DWORD vsCode[] = {
+      0xFFFE0200,
+      0x0200001F, 0x80000000, 0x900F0000,
+      0x02000001, 0xC00F0000, 0x90E40000,
+      0x02000001, 0xE00F0000, 0x90E40000,
+      0x0000FFFF,
+    };
+    static const DWORD psSolidCode[] = {
+      0xFFFF0200,
+      0x05000051, 0xA00F0000,
+        0x3F800000, 0x00000000, 0x00000000, 0x3F800000,
+      0x02000001, 0x800F0000, 0xA0E40000,
+      0x02000001, 0x800F0800, 0x80E40000,
+      0x0000FFFF,
+    };
+    IDirect3DVertexShader9* vs = nullptr;
+    IDirect3DPixelShader9*  ps = nullptr;
+    device->CreateVertexShader(vsCode, &vs);
+    device->CreatePixelShader(psSolidCode, &ps);
+
+    // Constant churn pools.
+    float vsConstants[16][4];
+    float psConstants[8][4];
+    for (int i = 0; i < 16; i++)
+      for (int c = 0; c < 4; c++)
+        vsConstants[i][c] = 0.25f * i + 0.1f * c;
+    for (int i = 0; i < 8; i++)
+      for (int c = 0; c < 4; c++)
+        psConstants[i][c] = 0.125f * i + 0.2f * c;
+
+    // Clip plane (2 sets / frame).
+    const float clipPlane[4] = { 0.f, 0.f, -1.f, 0.75f };
+    device->SetClipPlane(0, clipPlane);
+    device->SetRenderState(D3DRS_CLIPPLANEENABLE, 0x1);
+
+    device->SetStreamSource(0, vb, 0, sizeof(Vert));
+    device->SetIndices(ib);
+    device->SetVertexShader(vs);
+    device->SetPixelShader(ps);
+
+    // Default-restore list for churned render states.
+    struct StateDefault { D3DRENDERSTATETYPE state; DWORD value; };
+    const StateDefault stateDefaults[] = {
+      { D3DRS_ALPHABLENDENABLE, FALSE }, { D3DRS_SRCBLEND, D3DBLEND_SRCALPHA },
+      { D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA }, { D3DRS_ZENABLE, D3DZB_TRUE },
+      { D3DRS_ZWRITEENABLE, TRUE }, { D3DRS_CULLMODE, D3DCULL_CCW },
+      { D3DRS_ALPHATESTENABLE, FALSE }, { D3DRS_STENCILENABLE, FALSE },
+      { D3DRS_SCISSORTESTENABLE, FALSE },
+    };
+    const D3DRENDERSTATETYPE churnStates[] = {
+      D3DRS_ALPHABLENDENABLE, D3DRS_SRCBLEND, D3DRS_DESTBLEND, D3DRS_ZENABLE,
+      D3DRS_ZWRITEENABLE, D3DRS_CULLMODE, D3DRS_ALPHATESTENABLE,
+      D3DRS_STENCILENABLE, D3DRS_SCISSORTESTENABLE,
+    };
+    const DWORD churnValues[] = {
+      TRUE, D3DBLEND_ONE, D3DBLEND_ONE, D3DZB_TRUE,
+      FALSE, D3DCULL_NONE, TRUE, TRUE, TRUE,
+    };
+
+    uint64_t stateCalls = 0;
+    uint64_t drawCalls  = 0;
+    int      failedDraws = 0;
+    int      scissorRefCount = 0;
+
+    for (int mf = 0; mf < kMiniFrames; mf++) {
+      const bool doScene = (mf % 3 == 0);       // 15 Begin/EndScene pairs
+      const bool doViewport = (mf % 2 == 0);    // 28 SetViewport
+      const bool doRt = (mf % 4 == 1) && rtSurf;// 14 SetRenderTarget
+      const bool doStretch = (mf % 8 == 5) && rtSurf && backbuf; // 6 StretchRect
+
+      if (doScene) device->BeginScene();
+
+      // 71 SetVertexDeclaration / 50 ≈ 1.4 → alternate every mini-frame.
+      device->SetVertexDeclaration(decls[mf % 2]);
+      stateCalls++;
+
+      // ~90 shader sets / 50 ≈ 2 per mini-frame.
+      device->SetVertexShader(vs);  stateCalls++;
+      device->SetPixelShader(ps);   stateCalls++;
+
+      // 3,947 VS-const + 2,574 PS-const sets / 50.
+      for (int i = 0; i < 79; i++) {
+        device->SetVertexShaderConstantF((i * 3) % 220, vsConstants[i % 16], 1);
+        stateCalls++;
+      }
+      for (int i = 0; i < 51; i++) {
+        device->SetPixelShaderConstantF((i * 2) % 220, psConstants[i % 8], 1);
+        stateCalls++;
+      }
+
+      // 2,184 SetSamplerState / 50 across 4 stages.
+      for (int i = 0; i < 44; i++) {
+        device->SetSamplerState(i % 4,
+          (i / 4) % 3 == 0 ? D3DSAMP_MINFILTER
+          : (i / 4) % 3 == 1 ? D3DSAMP_MAGFILTER : D3DSAMP_ADDRESSU,
+          (i % 2) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+        stateCalls++;
+      }
+
+      // 1,869 SetTexture / 50 across 4 stages.
+      for (int i = 0; i < 37; i++) {
+        device->SetTexture(i % 4, textures[i % 2]);
+        stateCalls++;
+      }
+
+      // 1,092 SetRenderState / 50.
+      for (int i = 0; i < 22; i++) {
+        device->SetRenderState(churnStates[i % 9], churnValues[i % 9]);
+        stateCalls++;
+        if (churnStates[i % 9] == D3DRS_SCISSORTESTENABLE && churnValues[i % 9])
+          scissorRefCount++;
+      }
+      if (scissorRefCount % 2 == 1) {
+        // Keep scissor rect sane whenever the test is on.
+        RECT scissor = { 0, 0, LONG(kBackW), LONG(kBackH) };
+        device->SetScissorRect(&scissor);
+      }
+
+      if (doViewport) {
+        D3DVIEWPORT9 vp = { };
+        vp.X = (mf % 4) * 32; vp.Y = (mf % 4) * 16;
+        vp.Width = kBackW - vp.X; vp.Height = kBackH - vp.Y;
+        vp.MinZ = 0.0f; vp.MaxZ = 1.0f;
+        device->SetViewport(&vp);
+        stateCalls++;
+      }
+
+      if (doRt)
+        device->SetRenderTarget(0, rtSurf);
+
+      // 1,411 indexed draws / 50.
+      for (int d = 0; d < kDrawsPerMini; d++) {
+        const int quad = (mf * 5 + d * 7) % kQuads;
+        hr = device->DrawIndexedPrimitive(
+          D3DPT_TRIANGLELIST, quad * 4, 0, 4, quad * 6, 2);
+        if (FAILED(hr))
+          failedDraws++;
+        drawCalls++;
+      }
+
+      if (doRt)
+        device->SetRenderTarget(0, backbuf);
+
+      if (doStretch) {
+        hr = device->StretchRect(rtSurf, nullptr, backbuf, nullptr, D3DTEXF_LINEAR);
+        if (FAILED(hr)) {
+          std::fprintf(stderr, "d3d9-gamebryo-probe: FrameShape StretchRect failed (0x%08lx)\n",
+                       static_cast<unsigned long>(hr));
+          failedDraws += kDrawsPerMini;  // fail the probe
+        }
+        stateCalls++;
+      }
+
+      if (doScene) device->EndScene();
+
+      // Keep the swapchain exercised every mini-frame (macOS 26 constraint).
+      device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
+        D3DCOLOR_XRGB(16, 24, 16), 1.0f, 0);
+      device->Present(nullptr, nullptr, nullptr, nullptr);
+
+      if (doViewport) {
+        D3DVIEWPORT9 vp = { };
+        vp.Width = kBackW; vp.Height = kBackH; vp.MinZ = 0.0f; vp.MaxZ = 1.0f;
+        device->SetViewport(&vp);
+      }
+    }
+
+    // Restore everything the churn loop touched.
+    device->SetRenderState(D3DRS_CLIPPLANEENABLE, 0);
+    for (const auto& sd : stateDefaults)
+      device->SetRenderState(sd.state, sd.value);
+    device->SetTexture(0, nullptr);
+    device->SetTexture(1, nullptr);
+    device->SetTexture(2, nullptr);
+    device->SetTexture(3, nullptr);
+    device->SetVertexShader(nullptr);
+    device->SetPixelShader(nullptr);
+    device->SetVertexDeclaration(nullptr);
+    device->SetStreamSource(0, nullptr, 0, 0);
+    device->SetIndices(nullptr);
+
+    if (backbuf) backbuf->Release();
+    if (rtSurf)  rtSurf->Release();
+    if (rtTex)   rtTex->Release();
+    if (ps)      ps->Release();
+    if (vs)      vs->Release();
+    textures[1]->Release();
+    textures[0]->Release();
+    decls[1]->Release();
+    decls[0]->Release();
+    ib->Release();
+    vb->Release();
+
+    if (failedDraws > 0) {
+      std::fprintf(stderr,
+        "d3d9-gamebryo-probe: FrameShape FAILED (%d failed of %llu draws)\n",
+        failedDraws, (unsigned long long)drawCalls);
+      return false;
+    }
+
+    std::printf("d3d9-gamebryo-probe: FrameShape OK "
+      "(%d mini-frames, %llu indexed draws, %llu state calls)\n",
+      kMiniFrames, (unsigned long long)drawCalls, (unsigned long long)stateCalls);
+    return true;
+  }
+
   bool exerciseResetCycle(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS presentParams) {
     IDirect3DVertexBuffer9* losableVb = nullptr;
     HRESULT hr = device->CreateVertexBuffer(
@@ -1620,6 +1964,15 @@ int main(int argc, char** argv) {
   }
 
   if (!probeVolumeTexture(device)) {
+    device->Release();
+    d3d9->Release();
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 1;
+  }
+  flushFrame();
+
+  if (!probeFrameShape(device)) {
     device->Release();
     d3d9->Release();
     SDL_DestroyWindow(window);

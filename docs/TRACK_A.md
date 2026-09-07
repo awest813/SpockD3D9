@@ -58,6 +58,8 @@ Run locally:
 | `CreateStateBlock(D3DSBT_ALL)` capture + `Apply` | Render state block management |
 | `Present` + `Reset` | Device lifecycle |
 | Device-lost reset cycle (`D3DPOOL_DEFAULT` blocks `Reset` → `D3DERR_DEVICENOTRESET` → `Reset` OK) | Device lost / reset handling |
+| Frame-shape loop (`probeFrameShape`): churn-weighted indexed draws + constant/sampler/texture/render-state sets + declaration/viewport churn + offscreen RT switches + `StretchRect` composites + clip plane + `Begin/EndScene`, ratios from a real traced Fallout: New Vegas frame (1,411 DIP, 3,947 VS-const, 2,184 sampler, 1,092 render-state, 14 RT switches, 6 StretchRect per frame; scaled 1:50 for CI) | Gamebryo frame API-pressure profile |
+| DXSO shader corpus (`tests/dxso/dxso-corpus --selftest`, fixtures) | SM1–3 bytecode → SPIR-V at scale (real-game `.sdp` corpora locally) |
 
 Pass line: `d3d9-gamebryo-probe: OK`.
 
@@ -78,19 +80,33 @@ export MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2   # current MoltenVK descriptor p
 
 | Key | Value | Why |
 |-----|-------|-----|
-| `dxvk.enableShaderCache` | `True` | Caches SPIR-V → MSL / pipeline work across runs |
+| `dxvk.enableShaderCache` | `True` | Persists compiled shader IR across launches so known shaders are not re-translated (DXSO → IR) |
 | `dxvk.tilerMode` | `Auto` | TBDR-friendly render-pass behavior on MoltenVK |
 
-Benchmark profiles under `tools/*/` set both keys.
+Benchmark profiles under `tools/*/` set both keys. `dxvk.enableShaderCache` is
+read at device creation (`dxvk_options.cpp`); `DXVK_SHADER_CACHE=0` is an env
+kill-switch, and setting `DXVK_SHADER_DUMP_PATH` implicitly disables the cache
+(dump mode).
 
 ### Shader cache location
 
-DXVK stores compiled shader/pipeline data under the state cache directory (typically `~/.local/share/dxvk/` on Linux; on macOS native ports the same DXVK state-cache layout applies relative to the configured cache root). With `dxvk.enableShaderCache = True`, the second launch of a title should show far fewer MoltenVK shader compile stalls.
+DXVK's on-disk cache stores compiled shader IR per executable as two files,
+`<exe-fnv1a64>.dxvk.lut` + `.dxvk.bin`, resolved in this order:
+
+1. `$DXVK_SHADER_CACHE_PATH` (explicit directory)
+2. Windows (PE `d3d9.dll` under Wine): `%LOCALAPPDATA%\dxvk` — i.e. inside the
+   prefix at `drive_c/users/<user>/AppData/Local/dxvk`
+3. Otherwise: `$XDG_CACHE_HOME/dxvk` or `~/.cache/dxvk`
+
+The DXVK cache skips re-translating known shaders (DXSO → IR) on later
+launches — DXVK logs cache hits at `DXVK_LOG_LEVEL=info`. The remaining
+SPIR-V → MSL compile is MoltenVK-side; expect the biggest first-launch stall
+there and judge warm-up by second-launch behavior per title.
 
 For diagnostics:
 
 ```bash
-export DXVK_LOG_LEVEL=info    # pipeline / shader creation summaries
+export DXVK_LOG_LEVEL=info    # pipeline / shader creation + cache-hit summaries
 export DXVK_LOG_LEVEL=debug   # per-shader detail when debugging compile failures
 ```
 

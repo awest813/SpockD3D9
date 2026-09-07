@@ -112,6 +112,34 @@ The exe prints which `d3d9.dll` module it loaded — if the path is `system32`,
 the host's builtin d3d9 won and the override is not applied (fix the bottle's
 DLL override before blaming the translator).
 
+### 2b. DXSO shader-corpus pre-flight (before the first retail run)
+
+The `dxso-corpus` tool (built with the native meson build) batch-compiles
+real D3D9 shader bytecode through SpockD3D9's DXSO → SPIR-V compiler with no
+GPU, host, or game process — catching DXSO gaps before they surface as
+first-boot black screens:
+
+```bash
+# CI-runnable fixtures (also what the CI native job runs):
+<build-dir>/tests/dxso-corpus --selftest
+
+# Real corpus from a legally-owned Fallout: New Vegas / Fallout 3 install
+# (~15,535 SM1-3 shaders in Data/Shaders/*.sdp):
+<build-dir>/tests/dxso-corpus --sdp "<game>/Data/Shaders"
+
+# Shaders collected from any SpockD3D9 run via DXVK_SHADER_DUMP_PATH:
+<build-dir>/tests/dxso-corpus --dump "<dump dir>"
+```
+
+**Pass criteria:** exit 0 — every bounded shader compiled. Failures print a
+histogram keyed by error signature (scan noise — version tokens without end
+tokens inside `.sdp` packages — is counted separately and never fails).
+
+Run this against the target title's shader set before its first hosted boot;
+a failure here predicts a `CreatePixelShader`-time black screen and is much
+cheaper to debug. See [tools/fallout-new-vegas/README.md](../tools/fallout-new-vegas/README.md)
+for the FNV specifics.
+
 ## 3. Cosmos / Whisky-family bottle workflow
 
 Cosmos is a Whisky-family Wine wrapper (like Whisky / Sikarugir / CrossOver)
@@ -193,6 +221,26 @@ Same 32-bit PE workflow as Fallout 3; use the Oblivion helpers:
 
 Steam App IDs: **22330** = Oblivion GOTY (default), **4500** = Oblivion (original).
 Guide: [tools/oblivion/README.md](../tools/oblivion/README.md).
+
+## 4a. Tested Windows hosts (reference matrix)
+
+Host-side facts gathered from external projects that ran 32-bit D3D9 titles
+under Wine on Apple Silicon (d9mt with GTA IV, dx9mt with Fallout: New Vegas
+— see [docs/DX9_METAL_ROADMAP.md](DX9_METAL_ROADMAP.md)). None of these are
+committed SpockD3D9 targets; they set expectations for hosted runs.
+
+| Host | D3D9 32-bit under Rosetta | Notes |
+|------|---------------------------|-------|
+| **CrossOver 26** | ✅ (d9mt-tested) | Bundles DXMT/winemetal (only needed by d9mt's Metal path — irrelevant to SpockD3D9's winevulkan route); modern wow64 support |
+| **wine-crossover 23.7.1** (CrossOver FOSS sources + marzent msync patch) | ✅ (dx9mt-tested) | Fast Mach-semaphore NT-sync that upstream macOS Wine lacks; launch with `WINEMSYNC=1 WINEESYNC=0`; keep its prefix separate from other Wine builds |
+| **Upstream Wine 11** (Homebrew) | ✅ (dx9mt-tested) | Slower pacing than the msync build at matched settings (dx9mt FNV dense exterior: ~77 ms vs ~68 ms/frame); separate prefix |
+
+**Rosetta engine cost:** the 32-bit game engine itself dominates frame time
+under Rosetta 2 — dx9mt attributes ~50 ms/frame of FNV's ~68 ms to the engine,
+not the translation layer. Expect CPU-bound, playable-not-maxed results on
+Gamebryo-era titles, and record host + msync state with every benchmark (§5).
+
+GPTK/Whisky-family wrappers (Cosmos) are covered in §3.
 
 ## 5. Capture benchmark results consistently
 

@@ -9,3 +9,7 @@ build-pe-smoke-run-*/
 *_d3d9.log
 d3d9.log
 subprojects/.wraplock
+
+# Session/tooling artifacts
+.zcode/
+__pycache__/
