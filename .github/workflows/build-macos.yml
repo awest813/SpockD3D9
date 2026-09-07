@@ -191,9 +191,11 @@ jobs:
           - arch: x86
             out_dir: build-pe-d3d9-x86
             pe_signature: 'PE32 executable (DLL)'
+            pe_exe_signature: 'PE32 executable (console) Intel 80386'
           - arch: x64
             out_dir: build-pe-d3d9
             pe_signature: 'PE32+ executable (DLL)'
+            pe_exe_signature: 'PE32+ executable (console) x86-64'
 
     steps:
     - name: Checkout code
@@ -216,10 +218,16 @@ jobs:
         # "PE32+ executable" does not contain the substring "PE32 executable".
         file ${{ matrix.out_dir }}/d3d9.dll | tee /dev/stderr \
           | grep -qF '${{ matrix.pe_signature }}'
+        # Host-boundary smoke exe rides along with the DLL (same bitness).
+        test -f ${{ matrix.out_dir }}/d3d9-pe-smoke.exe
+        file ${{ matrix.out_dir }}/d3d9-pe-smoke.exe | tee /dev/stderr \
+          | grep -qF '${{ matrix.pe_exe_signature }}'
 
     - name: Upload PE artifact (${{ matrix.arch }})
       uses: actions/upload-artifact@v4
       with:
         name: spockd3d9-pe-d3d9-${{ matrix.arch }}-${{ github.sha }}
-        path: ${{ matrix.out_dir }}/d3d9.dll
+        path: |
+          ${{ matrix.out_dir }}/d3d9.dll
+          ${{ matrix.out_dir }}/d3d9-pe-smoke.exe
         if-no-files-found: error

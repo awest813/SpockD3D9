@@ -157,3 +157,15 @@ if platform != 'windows'
     )
   endif
 endif
+
+if platform == 'windows'
+  # Host-boundary probe for the experimental PE d3d9.dll: a Win32 console exe
+  # (no SDL) that loads the native override inside a Wine-family host and
+  # drives CreateDevice + Present through the host's HWND and winevulkan.
+  # Paired with scripts/run-pe-smoke.sh and check-boot-logs.sh (V1-V3).
+  executable('d3d9-pe-smoke',
+    'examples/d3d9_pe_smoke.cpp',
+    link_args           : [ '-luser32', '-lgdi32' ],
+    install             : true,
+  )
+endif

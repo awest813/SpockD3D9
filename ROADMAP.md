@@ -150,6 +150,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 |------|--------|-------|
 | Define execution model (wrapper / translation layer) | **Done** | Native-first translator + optional opt-in PE `d3d9.dll`; hosting delegated to external hosts, none committed to. See [docs/FALLOUT3_EXECUTION_MODEL.md](docs/FALLOUT3_EXECUTION_MODEL.md) |
 | Emit SpockD3D9 as an experimental PE `d3d9.dll` | **Scaffold done** | `-Denable_pe_d3d9=true` Meson option (default off), `cross/pe-x86_64-w64-mingw32.txt`, `scripts/build-pe-d3d9.sh`, CI cross-compile job; boot-to-menu workflow in [docs/BOOT_TO_MENU.md](docs/BOOT_TO_MENU.md) — retail V4 pending |
+| PE host-boundary smoke test | **Scaffold done** | `d3d9-pe-smoke.exe` (Win32 console) built with every PE `d3d9.dll`; loads the native override inside a Wine-family host and drives adapter enum + `CreateDevice` + `Present` — isolates host-boundary breakage from game issues before the first retail run. Driver: `scripts/run-pe-smoke.sh`; hosted runs pending |
 | Audit + polish Milestone F docs | **Done** | Audited status now aligned across [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md), [docs/MACOS_TESTING.md](docs/MACOS_TESTING.md), and [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | D3D9 device creation (Gamebryo) | **CI probe** | Native `d3d9-gamebryo-probe` covers: CreateDevice, formats, caps, all core geometry/texture/query paths (see below); retail boot-to-menu pending |
 | Shader compilation (SM2/SM3 + fixed-function) | **Partial (CI)** | `d3d9-gamebryo-probe` exercises FF paths (DrawPrimitive/DrawIndexedPrimitive/DrawPrimitiveUP) → SPIR-V → MSL; DXSO SM2/SM3 on retail shaders pending |
@@ -225,7 +226,7 @@ Primary target: Fallout 3 (Steam, Windows) running on macOS via SpockD3D9. The e
 
 - D3D9On12 (`d3d9_on_12.cpp` stubs)
 - DXGI / D3D10 / D3D11 (source retained; disabled via meson options)
-- **Direct Metal backend in default builds** — not implemented yet; long-term plan in [docs/DX9_METAL_ROADMAP.md](docs/DX9_METAL_ROADMAP.md) (reference: [dxmt](https://github.com/3Shain/dxmt) for D3D10/11)
+- **Direct Metal backend in default builds** — not implemented yet; long-term plan in [docs/DX9_METAL_ROADMAP.md](docs/DX9_METAL_ROADMAP.md) (references: [dxmt](https://github.com/3Shain/dxmt) for D3D10/11, [d9mt](https://github.com/neo773/d9mt) and [dx9mt](https://github.com/theodorechapman/dx9mt) for D3D9 — single-title research projects, study targets for Track B)
 - Non-D3D9 game APIs (DirectSound, DirectInput, XInput — needed for full game compatibility but outside SpockD3D9's responsibility; a wrapper layer must provide these)
 
 ---

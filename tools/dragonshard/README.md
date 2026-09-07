@@ -92,9 +92,27 @@ instead of the wrapper's own D3DMetal/DXVK. See also
 
 ```bash
 cd ~/Downloads
-unzip spockd3d9-pe-d3d9-x86-*.zip   # -> d3d9.dll
+unzip spockd3d9-pe-d3d9-x86-*.zip   # -> d3d9.dll + d3d9-pe-smoke.exe
 file d3d9.dll                        # must say PE32 executable (DLL) ... Intel 80386 (not PE32+)
 ```
+
+### 0a. Smoke-test the bottle before the game
+
+The artifact also ships `d3d9-pe-smoke.exe` — run it in the *same bottle* to
+settle both gotchas above (32-bit support, D3D backend shadowing) before any
+game is involved:
+
+```bash
+cd /path/to/SpockD3D9
+./scripts/run-pe-smoke.sh --arch x86 --from ~/Downloads \
+  --wine /path/to/bottle/wine --prefix /path/to/bottle
+```
+
+- Exit 0 + V1–V3 pass → the bottle can host SpockD3D9; proceed to the game.
+- `error: ... not a valid Win32 application` / no 32-bit exe runs → gotcha 1
+  (WoW64), a host blocker.
+- Loaded module path says `system32` or no `DXVK:` banner → gotcha 2
+  (wrapper's own d3d9 still owns the override).
 
 ### 1. Locate the game folder inside the bottle
 

@@ -27,8 +27,23 @@ SpockD3D9 provides **only** `d3d9.dll` + Vulkan translation. DirectInput, audio,
 ```bash
 # Fallout 3 is 32-bit, so build the 32-bit (i686) DLL.
 ./scripts/build-pe-d3d9.sh --arch x86
-# Output: build-pe-d3d9-x86/d3d9.dll
+# Output: build-pe-d3d9-x86/d3d9.dll (+ d3d9-pe-smoke.exe)
 ```
+
+### 1a. Pre-flight: smoke-test the host boundary (no game needed)
+
+Before pointing a retail game at the host, verify the hosted path itself —
+override load, `HWND` surface, winevulkan → MoltenVK, `CreateDevice`,
+`Present` — with the bundled Win32 smoke exe:
+
+```bash
+./scripts/run-pe-smoke.sh --arch x86          # uses $WINE (default: wine)
+```
+
+If this fails, the boot ladder below will fail for host reasons no game log
+can clarify; fix the bottle first (see [MACOS_TESTING.md §2a](MACOS_TESTING.md)
+and the troubleshooting table). If it passes V1–V3, any later failure inside
+Fallout 3 is a translator/game issue.
 
 ### 2. Install into the game directory
 
@@ -141,6 +156,7 @@ Use the format in [WINDOWS_D3D9_BENCHMARKS.md](WINDOWS_D3D9_BENCHMARKS.md#report
 | Path | Validates | Boot to menu? |
 |------|-----------|---------------|
 | `d3d9-gamebryo-probe` (native dylib) | V1–V2 equivalent on MoltenVK | No — not the game binary |
+| `d3d9-pe-smoke.exe` (PE, via `scripts/run-pe-smoke.sh`) | V1–V3 + `Present` inside the host, no game | No — not the game binary |
 | PE `d3d9.dll` + host | Full V1–V4+ | **Yes** — this document |
 
 Run the native probe first to isolate translator issues from host issues:

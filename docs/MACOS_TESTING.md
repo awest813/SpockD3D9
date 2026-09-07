@@ -72,12 +72,45 @@ file build-pe-d3d9-x86/d3d9.dll
 - Script exits 0
 - `file` reports `PE32 executable (DLL)` for x86, `PE32+ executable (DLL)` for x64
 - Output at `build-pe-d3d9-x86/d3d9.dll` (x86) and/or `build-pe-d3d9/d3d9.dll` (x64)
+- A `d3d9-pe-smoke.exe` (host-boundary smoke test) is built next to each DLL
+  and included in the CI artifact
 
 Use `--wipe` to force a clean reconfigure:
 
 ```bash
 ./scripts/build-pe-d3d9.sh --arch x86 --wipe
 ```
+
+### 2a. PE host-boundary smoke test (run before any game)
+
+The PE build also produces `d3d9-pe-smoke.exe` — a Win32 console executable
+that loads the native `d3d9.dll` override inside a Wine-family host and drives
+adapter enumeration, `CreateDevice`, and `Present`, without needing a game
+installed. It validates exactly the layer the native CI smoke tests cannot
+reach: `WINEDLLOVERRIDES` resolution, the host's `HWND`/winevulkan surface, and
+MoltenVK inside the prefix. Run it before the first retail attempt so a failure
+means "host boundary broken", not "game issue":
+
+```bash
+# Default: wine on PATH, 32-bit build (the benchmark titles' path)
+./scripts/run-pe-smoke.sh --build
+
+# Inside a specific bottle / host:
+WINE=/path/to/bottles/wine WINEPREFIX=/path/to/bottle ./scripts/run-pe-smoke.sh
+
+# From an unzipped CI artifact:
+./scripts/run-pe-smoke.sh --from ~/Downloads
+```
+
+**Pass criteria:**
+
+- `d3d9-pe-smoke.exe` exits 0 (`OK (N frame(s) presented)`)
+- `scripts/check-boot-logs.sh` reports V1 + V3 (V2 rides along via
+  `adapterCount=` output)
+
+The exe prints which `d3d9.dll` module it loaded — if the path is `system32`,
+the host's builtin d3d9 won and the override is not applied (fix the bottle's
+DLL override before blaming the translator).
 
 ## 3. Cosmos / Whisky-family bottle workflow
 
@@ -89,6 +122,17 @@ instead of the wrapper's own D3DMetal/DXVK.
 
 1. **Build the matching-bitness DLL** (section 2). Check the target game's
    bitness first — Fallout 3 and friends are 32-bit, so `--arch x86`.
+
+   Then **smoke-test the bottle itself** before installing a game (section 2a):
+
+   ```bash
+   WINE=/path/to/bottle/wine WINEPREFIX=/path/to/bottle \
+     ./scripts/run-pe-smoke.sh --arch x86
+   ```
+
+   This catches the two classic bottle blockers — 32-bit (WoW64) support and
+   the wrapper's own D3D backend shadowing the override — without a game in
+   the loop.
 
 2. **Locate the game directory inside the bottle.** It lives under the bottle's
    `drive_c`, e.g.
