@@ -1429,7 +1429,6 @@ namespace {
     uint64_t stateCalls = 0;
     uint64_t drawCalls  = 0;
     int      failedDraws = 0;
-    int      scissorRefCount = 0;
 
     for (int mf = 0; mf < kMiniFrames; mf++) {
       const bool doScene = (mf % 3 == 0);       // 15 Begin/EndScene pairs
@@ -1474,15 +1473,16 @@ namespace {
 
       // 1,092 SetRenderState / 50.
       for (int i = 0; i < 22; i++) {
+        const bool enablingScissor =
+          churnStates[i % 9] == D3DRS_SCISSORTESTENABLE && churnValues[i % 9];
         device->SetRenderState(churnStates[i % 9], churnValues[i % 9]);
         stateCalls++;
-        if (churnStates[i % 9] == D3DRS_SCISSORTESTENABLE && churnValues[i % 9])
-          scissorRefCount++;
-      }
-      if (scissorRefCount % 2 == 1) {
-        // Keep scissor rect sane whenever the test is on.
-        RECT scissor = { 0, 0, LONG(kBackW), LONG(kBackH) };
-        device->SetScissorRect(&scissor);
+        if (enablingScissor) {
+          // Enable with a full-surface rect so draws are not silently
+          // scissor-culled by a stale rect.
+          RECT scissor = { 0, 0, LONG(kBackW), LONG(kBackH) };
+          device->SetScissorRect(&scissor);
+        }
       }
 
       if (doViewport) {
@@ -1494,8 +1494,13 @@ namespace {
         stateCalls++;
       }
 
-      if (doRt)
+      if (doRt) {
         device->SetRenderTarget(0, rtSurf);
+        D3DVIEWPORT9 rtVp = { };
+        rtVp.Width = 256; rtVp.Height = 256; rtVp.MinZ = 0.0f; rtVp.MaxZ = 1.0f;
+        device->SetViewport(&rtVp);
+        stateCalls++;
+      }
 
       // 1,411 indexed draws / 50.
       for (int d = 0; d < kDrawsPerMini; d++) {
@@ -1507,8 +1512,12 @@ namespace {
         drawCalls++;
       }
 
-      if (doRt)
+      if (doRt) {
         device->SetRenderTarget(0, backbuf);
+        D3DVIEWPORT9 vp = { };
+        vp.Width = kBackW; vp.Height = kBackH; vp.MinZ = 0.0f; vp.MaxZ = 1.0f;
+        device->SetViewport(&vp);
+      }
 
       if (doStretch) {
         hr = device->StretchRect(rtSurf, nullptr, backbuf, nullptr, D3DTEXF_LINEAR);

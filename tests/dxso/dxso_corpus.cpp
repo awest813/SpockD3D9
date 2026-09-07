@@ -152,6 +152,11 @@ namespace {
     return major >= 1 && major <= 3;
   }
 
+  // Guard padding appended to loaded buffers (see loadWords): the scanner
+  // must ignore it so a trailing version token still counts as unbounded
+  // noise instead of compiling an empty shader against the padding.
+  constexpr size_t kLoadPadWords = 8;
+
   std::vector<uint32_t> loadWords(const fs::path& path, bool& ok) {
     ok = false;
     std::ifstream file(path, std::ios::binary);
@@ -164,7 +169,10 @@ namespace {
 
     // Token streams are whole u32s; a ragged tail cannot contain a shader.
     const size_t wordCount = bytes.size() / 4;
-    std::vector<uint32_t> words(wordCount);
+    // Guard padding: the DXSO decoder walks to the next end token with no
+    // blob bound, so a malformed final shader must not run off the buffer.
+    // 0x0000FFFF is never a version token, so the scanner ignores it.
+    std::vector<uint32_t> words(wordCount + kLoadPadWords, 0x0000FFFF);
     if (wordCount)
       std::memcpy(words.data(), bytes.data(), wordCount * 4);
 
@@ -179,7 +187,9 @@ namespace {
       std::fprintf(stderr, "dxso-corpus: cannot open %s\n", path.string().c_str());
       return;
     }
-    const size_t count = words.size();
+    // Scan only the file's own words; the appended guard padding is for
+    // decoder safety, not for blob accounting.
+    const size_t count = words.size() - kLoadPadWords;
 
     size_t i = 0;
     size_t compiledInFile = 0;

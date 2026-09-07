@@ -120,15 +120,15 @@ GPU, host, or game process — catching DXSO gaps before they surface as
 first-boot black screens:
 
 ```bash
-# CI-runnable fixtures (also what the CI native job runs):
-<build-dir>/tests/dxso-corpus --selftest
+# CI-runnable fixtures (also run by ./scripts/test-macos-native.sh):
+$(find build-test -name dxso-corpus -type f | head -1) --selftest
 
 # Real corpus from a legally-owned Fallout: New Vegas / Fallout 3 install
 # (~15,535 SM1-3 shaders in Data/Shaders/*.sdp):
-<build-dir>/tests/dxso-corpus --sdp "<game>/Data/Shaders"
+$(find build-test -name dxso-corpus -type f | head -1) --sdp "<game>/Data/Shaders"
 
 # Shaders collected from any SpockD3D9 run via DXVK_SHADER_DUMP_PATH:
-<build-dir>/tests/dxso-corpus --dump "<dump dir>"
+$(find build-test -name dxso-corpus -type f | head -1) --dump "<dump dir>"
 ```
 
 **Pass criteria:** exit 0 — every bounded shader compiled. Failures print a
@@ -191,6 +191,17 @@ The dxvk.conf keys that matter most in a bottle are in section 6; the title
 profiles under `tools/*/` already set them.
 
 ## 4. Fallout 3 boot-to-menu (hosted)
+
+**Pre-flight checklist — run these in order before the first retail attempt.**
+Each step isolates a failure layer so a later problem is never ambiguous:
+
+| # | Step | Validates | If it fails |
+|---|------|-----------|-------------|
+| 1 | `./scripts/test-macos-native.sh` | Translator on MoltenVK, no host in the loop (clear, probe incl. frame-shape, corpus selftest) | Translator regression — debug natively, cheapest loop |
+| 2 | `./scripts/build-pe-d3d9.sh --arch x86` | PE DLL + smoke exe build, correct bitness | Build/toolchain issue |
+| 3 | `WINE=… WINEPREFIX=… ./scripts/run-pe-smoke.sh --arch x86` (§2a) | Host boundary: override load, HWND surface, winevulkan → MoltenVK, `CreateDevice`, `Present` — no game needed | Host/bottle issue (32-bit WoW64, DLL shadowing, Vulkan wiring) — fix before touching the game |
+| 4 | `dxso-corpus --sdp "<game>/Data/Shaders"` (§2b, if the title ships shaders) | DXSO accepts every real shader of the target title | Translator gap with a shader-level error signature |
+| 5 | Prepare + launch the title (below), read the log with `check-boot-logs.sh` | Full V1–V4 ladder | Now a failure means game/translator interaction — attach everything above to the report |
 
 Automated helpers (after PE build):
 

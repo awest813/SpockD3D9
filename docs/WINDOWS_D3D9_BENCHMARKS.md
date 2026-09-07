@@ -16,7 +16,7 @@ presentation, and old-engine timing assumptions.
 
 ## Current blocker
 
-All five are Windows executables. They require an external Windows host plus an
+All six are Windows executables. They require an external Windows host plus an
 experimental PE `d3d9.dll` build of SpockD3D9. The default macOS build still
 emits the native `libdxvk_d3d9.dylib`, which is the canonical translator artifact
 but cannot be loaded directly by an unmodified Windows game.
@@ -40,11 +40,13 @@ The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
 
-All five are Steam titles, so the hosted launch path uses Steam to satisfy DRM
-and the overlay. Title-specific wrappers (`launch-fallout3-host.sh`,
+Five of the six are Steam titles, so the hosted launch path uses Steam to
+satisfy DRM and the overlay. Title-specific wrappers (`launch-fallout3-host.sh`,
 `launch-oblivion-host.sh`) or the generic `launch-steam-d3d9-host.sh --steam
 --appid <id>` work once the matching profile is installed as `dxvk.conf` in the
-game directory.
+game directory. GTA IV is the exception: prefer the direct `GTAIV.exe` launch
+with the community xliveless stub (GFWL removal) over the launcher/Steam path —
+see [tools/gta-iv/README.md](../tools/gta-iv/README.md).
 
 **Built-in profiles (auto-applied):** Fallout 3, Oblivion, Dragon Age: Origins,
 and Galactic Civilizations II also have compiled-in profiles in

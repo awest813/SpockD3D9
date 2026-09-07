@@ -111,6 +111,15 @@ else
   run_smoke d3d9-gamebryo-probe
 fi
 
+# DXSO corpus fixtures are deterministic (no GPU) — required pass.
+if [ -x "$LIB_DIR/dxso-corpus" ]; then
+  echo "=== Smoke test: dxso-corpus (fixture selftest) ==="
+  "$LIB_DIR/dxso-corpus" --selftest
+else
+  echo "error: dxso-corpus not built; native test cannot run its selftest." >&2
+  exit 1
+fi
+
 echo ""
 echo "Native macOS smoke test passed."
 echo "Library: $LIB_DIR/libdxvk_d3d9.dylib"

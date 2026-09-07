@@ -68,12 +68,18 @@ WINE=<bottle wine> WINEPREFIX=<bottle> WINEDLLOVERRIDES="d3d9=n,b" \
   <bottle wine> "<game dir>/GTAIV.exe"
 ```
 
-Or via the generic host helper after placing the DLL and conf:
+Or via the generic host helpers (prepare writes `spockd3d9-host.env` and
+installs the DLL + profile; launch consumes them):
 
 ```bash
-./scripts/launch-steam-d3d9-host.sh --game-dir "<game dir>" --exe GTAIV.exe \
-  --title "GTA IV"          # Steam appid 12210 (base) / 11340 (EFLC) if needed
+./scripts/prepare-steam-d3d9-host.sh --game-dir "<game dir>" \
+  --profile tools/gta-iv/gta-iv.dxvk.conf
+./scripts/launch-steam-d3d9-host.sh --game-dir "<game dir>" \
+  --exe GTAIV.exe --title "GTA IV"
 ```
+
+(Steam appid 12210 base / 11340 EFLC via `--steam --appid` only if you
+must launch through Steam; the direct exe is the tested path.)
 
 ## Expected early signals
 
