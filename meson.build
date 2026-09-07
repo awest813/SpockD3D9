@@ -255,6 +255,11 @@ endif
 
 subdir('src')
 
+# DXSO corpus harness (fixtures in CI, real game corpora locally).
+if get_option('enable_d3d9') and platform != 'windows'
+  subdir('tests')
+endif
+
 if get_option('enable_pe_d3d9')
   summary('Experimental PE d3d9.dll', 'enabled (MinGW cross-build)', section: 'Experimental')
 endif
