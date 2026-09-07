@@ -129,13 +129,16 @@ export DYLD_LIBRARY_PATH="$(brew --prefix molten-vk)/lib:$DYLD_LIBRARY_PATH"
 | Host still uses built-in D3D9 | `WINEDLLOVERRIDES="d3d9=n,b"`; `d3d9.dll` next to `Fallout3.exe` |
 | `DXVK: No adapters found` | MoltenVK ICD; `VK_ICD_FILENAMES` / Homebrew `molten-vk` |
 | Crash before `CreateDeviceEx OK` | `DXVK_LOG_LEVEL=debug`; compare with native `d3d9-gamebryo-probe` |
-| Black screen after device created | Shader compile failure — enable `dxvk.enableShaderCache = True`; retry second launch |
+| Black screen after device created | Shader compile failure — enable `dxvk.enableShaderCache = True`; retry second launch. The cache writes `<exe>.dxvk.lut/.bin` inside the prefix at `drive_c/users/<user>/AppData/Local/dxvk` (or `$DXVK_SHADER_CACHE_PATH`) — its absence after a run means caching is off |
 | `Device lost` loop on focus | Profile has `d3d9.deviceLossOnFocusLoss = False` (default in `fallout3.dxvk.conf`) |
 | Instant exit, no DXVK line | Wrong DLL arch (Fallout 3 needs x86 / PE32); verify with `file d3d9.dll` |
 | Game closes immediately, relaunches | Steam DRM on a direct-exe launch — use `--steam` instead of running `Fallout3.exe` |
 | No `d3d9.log` after `--steam` | Steam launches detached; confirm `DXVK_LOG_PATH` points at the game dir (set by `prepare-fallout3-host.sh`) |
 | Crash/black screen only with overlay | Steam overlay's D3D9 hook conflicts — retry with `--no-overlay` to isolate |
 | `--steam` does nothing | Steam not running/logged in in the prefix, or wrong `--appid` (22370 GOTY / 22300 base) |
+| Crash before any `DXVK:` line (FNV) | Known game/Wine bug: BSShader factory NULL-deref under Wine (TLS slot 0 on the IO thread) — not a translation bug; see [tools/fallout-new-vegas/README.md](../tools/fallout-new-vegas/README.md) |
+| Game launches via script extender | Use the loader exe (`nvse_loader.exe` for FNV) and add `dxsetup.exe=d` to `WINEDLLOVERRIDES` |
+| Game picks broken render path (Gamebryo) | Gamebryo branches on adapter vendor/device ID — try `d3d9.customVendorId = 10DE` + `d3d9.customDeviceId = 0611` in the title `dxvk.conf` |
 | Works on Windows DXVK, not Spock | File issue with macOS-specific caps/format — use macOS bug template |
 
 ---
