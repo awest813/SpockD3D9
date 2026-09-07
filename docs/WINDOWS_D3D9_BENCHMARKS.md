@@ -71,6 +71,11 @@ Track every title through the same milestones so regressions are comparable:
 | V7 - Rendering | Terrain/interiors/characters/effects render without major artifacts |
 | V8 - Stability | 30+ minutes of play without crashes or device-loss loops |
 
+V1–V3 can be validated in a given host *without any title* using the PE
+host-boundary smoke exe (`scripts/run-pe-smoke.sh`, see
+[BOOT_TO_MENU.md §1a](BOOT_TO_MENU.md)) — run it once per bottle before the
+first title attempt.
+
 ## Target-specific rendering checks
 
 ### Fallout 3

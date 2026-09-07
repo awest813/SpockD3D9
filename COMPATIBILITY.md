@@ -53,6 +53,7 @@ See [docs/FALLOUT3_COMPAT.md](docs/FALLOUT3_COMPAT.md) for the full per-subsyste
 |----------------|--------|-----|-------|-------------|
 | `d3d9-clear` (built-in smoke test) | **Works** | SDL3 | Clears back buffer and presents; exercised in CI | *(none)* |
 | `d3d9-clear-sdl2` (optional smoke test) | **Works** | SDL2 | Built when both SDL3 and SDL2 are available | *(none)* |
+| `d3d9-pe-smoke` (PE host-boundary probe) | **Untested** (needs a Wine-family host) | Win32 (host `HWND`) | Loads the PE `d3d9.dll` override inside Wine/CrossOver/Cosmos and validates V1–V3 + `Present` without a game; run via `scripts/run-pe-smoke.sh` | `tools/macos/macos.dxvk.conf` |
 
 ---
 

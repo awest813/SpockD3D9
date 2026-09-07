@@ -18,6 +18,8 @@
 # Output:
 #   build-pe-d3d9/d3d9.dll      (x64)
 #   build-pe-d3d9-x86/d3d9.dll  (x86)
+#   plus d3d9-pe-smoke.exe next to each DLL (host-boundary smoke test;
+#   run inside a Wine-family host via scripts/run-pe-smoke.sh)
 
 set -euo pipefail
 
@@ -141,6 +143,19 @@ build_one() {
     exit 1
   fi
   echo "Install tree: $build_dir/staging"
+
+  # Host-boundary smoke exe: validates the DLL inside a Wine-family host
+  # (native override load, adapter enum, CreateDevice, Present) without a
+  # game install. Run via scripts/run-pe-smoke.sh.
+  local exe_path
+  exe_path="$(find "$build_dir/staging" -name 'd3d9-pe-smoke.exe' -type f | head -1)"
+  if [ -n "$exe_path" ]; then
+    cp "$exe_path" "$build_dir/d3d9-pe-smoke.exe"
+    echo "Built: $build_dir/d3d9-pe-smoke.exe (host-boundary smoke test)"
+    file "$build_dir/d3d9-pe-smoke.exe"
+  else
+    echo "warning: d3d9-pe-smoke.exe not found under $build_dir/staging" >&2
+  fi
 }
 
 case "$arch" in
@@ -157,6 +172,9 @@ esac
 echo ""
 echo "Usage with an external Windows host (example):"
 echo '  WINEDLLOVERRIDES="d3d9=n,b" wine Fallout3.exe   # 32-bit game -> build --arch x86'
+echo ""
+echo "Validate the host boundary before a game run (no game needed):"
+echo "  ./scripts/run-pe-smoke.sh --arch x86            # uses this build + \$WINE"
 echo ""
 echo "See docs/MACOS_TESTING.md for the full macOS validation checklist,"
 echo "including the Cosmos / Whisky-family bottle workflow."

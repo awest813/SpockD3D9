@@ -19,7 +19,15 @@ It answers three questions:
 
 **Track A remains the default** until retail benchmark titles (Fallout 3, etc.) boot and render reliably. **Track B** is a multi-phase engineering program, not a drop-in replacement: it implies a new graphics backend and shader target while reusing most of the D3D9 front end.
 
-Reference for D3D10/11 direct Metal: [dxmt](https://github.com/3Shain/dxmt). There is no mature public “dxmt for D3D9”; SpockD3D9’s DXSO layer and fixed-function paths are the closest in-repo starting point.
+Reference implementations for direct Metal translation:
+
+| Project | Scope | Status |
+|---------|-------|--------|
+| [dxmt](https://github.com/3Shain/dxmt) | D3D10/11 → Metal via Wine | Mature reference for the Metal backend shape (resources, encoders, winemetal) |
+| [d9mt](https://github.com/neo773/d9mt) | D3D9 → Metal via Wine | Research project: vendored DXVK D3D9 frontend (DXSO → SPIR-V) + SPIRV-Cross to MSL + DXMT's winemetal bridge across the wow64 boundary; Apple Silicon only; **one** tested game (GTA IV, ~50–90 fps on an M1 Max); persistent metallib disk cache, out-of-process shader compilation, async pipeline compilation, command batching, buffer suballocation |
+| [dx9mt](https://github.com/theodorechapman/dx9mt) | 32-bit D3D9 → Metal via Wine | Built for Fallout: New Vegas with a different Wine boundary (shared-memory frame replay, no DXVK frontend); in-game rendering reported at early quality (~15 fps dense exteriors on M4 Pro) |
+
+There is still no *general-purpose* mature "dxmt for D3D9" — each project above has exactly one tested title — so SpockD3D9's DXSO layer and fixed-function paths remain the in-repo starting point. But d9mt is a working existence proof for most of Track B (its shader path is exactly Phase 4a), which makes Track B a study-and-adapt problem rather than green-field invention. Their existence does not change the gating: Track A retail validation (gate G0) still comes first.
 
 ---
 
@@ -188,16 +196,16 @@ Reference for D3D10/11 direct Metal: [dxmt](https://github.com/3Shain/dxmt). The
 
 **Recommended staged approach:**
 
-1. **4a — SPIRV-Cross bridge:** Keep `dxso` + glslang SPIR-V output; add `src/metal/shader_spirv_cross.mm` to emit MSL and `MTLLibrary` at create time. Fastest path to first triangle; still pays cross-compile cost once per module (cacheable on disk).
+1. **4a — SPIRV-Cross bridge:** Keep `dxso` + glslang SPIR-V output; add `src/metal/shader_spirv_cross.mm` to emit MSL and `MTLLibrary` at create time. Fastest path to first triangle; still pays cross-compile cost once per module (cacheable on disk). *Validated externally:* d9mt ships exactly this shader path (DXSO → SPIR-V → SPIRV-Cross → MSL) in a running game.
 2. **4b — FF MSL generator:** Replace `src/d3d9/shaders/*.glsl` with MSL emission from `D3D9FixedFunctionPipeline` keys (mirror `d3d9_fixed_function.cpp`).
 3. **4c — DXSO → MSL (optional):** Only if SPIRV-Cross gaps block titles; highest engineering cost.
 
-| Task | Description |
-|------|-------------|
-| 4.1 | MSL pipeline cache (hash DXSO + FF key + render state) |
-| 4.2 | `MTLRenderPipelineState` / depth-stencil / sampler from D3D9 state blocks |
-| 4.3 | Constant buffer layout ↔ Metal buffer bindings (argument buffers vs discrete buffers) |
-| 4.4 | Validator parity with `d3d9_shader_validator.cpp` |
+| Task | Description | Reference prior art |
+|------|-------------|---------------------|
+| 4.1 | MSL pipeline cache (hash DXSO + FF key + render state) | d9mt: on-disk metallib cache (`~/Library/Caches/d9mt/`, `D9MT_METALLIB_CACHE`), compiled out-of-process so each shader compiles once ever and reloads without stutter |
+| 4.2 | `MTLRenderPipelineState` / depth-stencil / sampler from D3D9 state blocks | d9mt: async pipeline-state creation in its native arm64 unixlib |
+| 4.3 | Constant buffer layout ↔ Metal buffer bindings (argument buffers vs discrete buffers) | dxmt argument-buffer design; MoltenVK tier-2 experience from Track A |
+| 4.4 | Validator parity with `d3d9_shader_validator.cpp` | — |
 
 **Validation:** `d3d9-gamebryo-probe` on Metal backend; then Fallout 3 menu shaders.
 
@@ -222,13 +230,13 @@ Reference for D3D10/11 direct Metal: [dxmt](https://github.com/3Shain/dxmt). The
 
 ### Phase 6 — Performance, caching, and production
 
-| Task | Description |
-|------|-------------|
-| 6.1 | On-disk MSL + pipeline cache (analogous to `dxvk.enableShaderCache`) |
-| 6.2 | Argument buffers / heap residency tuning |
-| 6.3 | Per-title Metal profiles (`tools/macos/*.metal.conf` or shared `dxvk.conf` keys) |
-| 6.4 | PE `d3d9.dll` linked against Metal backend (if Windows host path still needed) |
-| 6.5 | Benchmark vs Track A on same titles (frame time, shader hitches, memory) |
+| Task | Description | Reference prior art |
+|------|-------------|---------------------|
+| 6.1 | On-disk MSL + pipeline cache (analogous to `dxvk.enableShaderCache`) | d9mt metallib disk cache (each shader compiles once, ever) |
+| 6.2 | Argument buffers / heap residency tuning | dxmt / d9mt argument-buffer usage; MoltenVK tier-2 findings from Track A |
+| 6.3 | Per-title Metal profiles (`tools/macos/*.metal.conf` or shared `dxvk.conf` keys) | — |
+| 6.4 | PE `d3d9.dll` linked against Metal backend (if Windows host path still needed) | d9mt crosses the Wine boundary via DXMT's winemetal unixlib instead of winevulkan — the fallback design if the 32-bit winevulkan → MoltenVK chain proves unreliable |
+| 6.5 | Benchmark vs Track A on same titles (frame time, shader hitches, memory) | d9mt reports command batching + buffer suballocation + clean frame pacing as its main CPU-side wins |
 
 **Success metrics:**
 
@@ -305,7 +313,9 @@ option('graphics_backend', type : 'combo',
 |---------|--------------|
 | **Upstream DXVK** | Track A sync source; Metal backend unlikely upstream |
 | **MoltenVK** | Track A runtime; contribute fixes for D3D9-exposed Vulkan gaps |
-| **dxmt** | Architectural reference for D3D10/11 → Metal; not D3D9-complete |
+| **dxmt** | Architectural reference for D3D10/11 → Metal; origin of the winemetal bridge |
+| **d9mt** | Working D3D9 → Metal prototype (DXVK D3D9 frontend + SPIRV-Cross + winemetal, GTA IV); Track B study target for shader caching, async pipelines, command batching, and the Wine boundary — note its licenses are deferred to vendored DXVK/DXMT/spirv-cross components, so reuse needs a license review |
+| **dx9mt** | 32-bit D3D9 → Metal experiment targeting Fallout: New Vegas via shared-memory frame replay; alternative Wine-boundary design, single-title maturity |
 | **Wine / CrossOver / GPTK** | Host PE loader; unchanged — still load `d3d9.dll` / dylib |
 
 ---

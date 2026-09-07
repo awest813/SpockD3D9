@@ -1,5 +1,7 @@
 build-pe-d3d9/
 build-test/
+# Runtime staging dir created by scripts/run-pe-smoke.sh
+build-pe-smoke-run-*/
 
 # Local macOS smoke-test artifacts
 # DXVK writes a per-process log (<exe>_d3d9.log) into the working directory,
