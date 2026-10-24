@@ -1,6 +1,6 @@
 # Windows D3D9 macOS benchmark targets
 
-SpockD3D9's compatibility work is measured against five retail Windows D3D9
+SpockD3D9's compatibility work is measured against seven retail Windows D3D9
 games on macOS:
 
 1. **Fallout 3** - Gamebryo, fixed-function + SM2/SM3
@@ -8,6 +8,8 @@ games on macOS:
 3. **Fallout: New Vegas** - Gamebryo, fixed-function + SM2/SM3
 4. **Dragon Age: Origins** - BioWare Eclipse, SM3 renderer
 5. **Galactic Civilizations II** - Stardock strategy renderer, D3D9 UI/map rendering
+6. **Grand Theft Auto IV** - RAGE, D3D9
+7. **Dungeons & Dragons: Dragonshard** - fixed-function RTS/RPG, D3D9 (GOG)
 
 These titles exercise the compatibility surface that matters most for hosted
 Windows D3D9 games: device creation, display mode enumeration, fullscreen/reset
@@ -16,7 +18,7 @@ presentation, and old-engine timing assumptions.
 
 ## Current blocker
 
-All six are Windows executables. They require an external Windows host plus an
+All seven are Windows executables. They require an external Windows host plus an
 experimental PE `d3d9.dll` build of SpockD3D9. The default macOS build still
 emits the native `libdxvk_d3d9.dylib`, which is the canonical translator artifact
 but cannot be loaded directly by an unmodified Windows game.
@@ -31,6 +33,7 @@ but cannot be loaded directly by an unmodified Windows game.
 | Dragon Age: Origins | `daorigins.exe` | 47810 | `tools/dragon-age-origins/dragon-age-origins.dxvk.conf` |
 | Galactic Civilizations II | `GC2*.exe` | 3590 (Ultimate) | `tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf` |
 | Grand Theft Auto IV | `GTAIV.exe` | 12210 (base) / 11340 (EFLC) | `tools/gta-iv/gta-iv.dxvk.conf` |
+| Dragonshard | `Dragonshard.exe` | GOG (no Steam app id) | `tools/dragonshard/dragonshard.dxvk.conf` |
 
 GTA IV prefers a direct `GTAIV.exe` launch with the community xliveless stub
 (GFWL removal) over the launcher/Steam path — see
@@ -40,23 +43,26 @@ The profile validator (`tests/conf/test_dxvk_conf_profiles.py`) discovers every
 `tools/**/*.dxvk.conf` file, verifies active keys against `dxvk.conf`, and fails
 if any of these benchmark profiles are missing.
 
-Five of the six are Steam titles, so the hosted launch path uses Steam to
+Six of the seven are Steam titles, so the hosted launch path uses Steam to
 satisfy DRM and the overlay. Title-specific wrappers (`launch-fallout3-host.sh`,
 `launch-oblivion-host.sh`) or the generic `launch-steam-d3d9-host.sh --steam
 --appid <id>` work once the matching profile is installed as `dxvk.conf` in the
-game directory. GTA IV is the exception: prefer the direct `GTAIV.exe` launch
-with the community xliveless stub (GFWL removal) over the launcher/Steam path —
-see [tools/gta-iv/README.md](../tools/gta-iv/README.md).
+game directory. GTA IV prefers a direct `GTAIV.exe` launch with the community
+xliveless stub (GFWL removal) — see
+[tools/gta-iv/README.md](../tools/gta-iv/README.md). Dragonshard is GOG; use
+[tools/dragonshard/README.md](../tools/dragonshard/README.md).
 
 **Built-in profiles (auto-applied):** Fallout 3, Oblivion, Dragon Age: Origins,
-and Galactic Civilizations II also have compiled-in profiles in
-`src/util/config/config.cpp` that match the game executable and auto-apply the
-compat-relevant subset of the keys above (shader model, refresh-rate lock,
-frame latency, focus-loss handling, plus `modeCountCompatibility` for GalCiv II).
-Copying the `tools/**/*.dxvk.conf` file is therefore optional — use it to layer
-opt-in tuning (e.g. `presentInterval`) on top. Fallout: New Vegas ships a
-separate upstream built-in profile targeting the New Vegas Reloaded mod, so its
-boot conf must still be copied manually.
+Galactic Civilizations II, Fallout: New Vegas, and Dragonshard have compiled-in
+profiles in `src/util/config/config.cpp`. User `dxvk.conf` keys win; built-in
+keys fill anything the file leaves unset. Shader model 3, shader cache, and
+`deviceLossOnFocusLoss=False` are already the library defaults. The built-in
+profiles add the 60 Hz mode lock and `maxFrameLatency=1`. New Vegas also keeps
+`floatEmulation=Strict` and `hideNvidiaGpu=True` for the New Vegas Reloaded
+mod. Dragonshard also keeps `cachedWriteOnlyBuffers=True` and sets
+`modeCountCompatibility`. `d3d9.presentInterval=-1` (honor the application) is
+the default; the shipped profiles set that explicitly. The old profiles set
+`0`, which disables vsync.
 
 ## Boot-to-menu workflow (Fallout 3)
 

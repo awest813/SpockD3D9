@@ -30,6 +30,7 @@ Contributions welcome: test a title, add a row, and open a PR. For bugs use the 
 | **Dragon Age: Origins (Windows)** | **Blocked** | BioWare Eclipse / D3D9 | Windows game compat | Benchmark target; profile shipped — expands coverage beyond Gamebryo to an SM3-heavy RPG renderer | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Galactic Civilizations II (Windows)** | **Blocked** | Stardock strategy renderer / D3D9 | Windows game compat | Benchmark target; profile shipped — adds old-strategy UI, mode-picker, and map-rendering coverage | [docs/WINDOWS_D3D9_BENCHMARKS.md](docs/WINDOWS_D3D9_BENCHMARKS.md) |
 | **Grand Theft Auto IV (Steam, Windows)** | **Blocked** | RAGE / D3D9 | Windows game compat | Benchmark target; profile shipped — hosting path de-risked by the d9mt project (GTA IV proven under Wine/Rosetta with a D3D9 replacement layer); 32-bit, needs xliveless + direct `GTAIV.exe` launch | [tools/gta-iv/README.md](tools/gta-iv/README.md) |
+| **Dungeons & Dragons: Dragonshard (GOG, Windows)** | **Blocked** | Liquid Entertainment / D3D9 | Windows game compat | Benchmark target; profile shipped — 32-bit fixed-function RTS, GOG/Cosmos walkthrough in `tools/dragonshard/`; same PE `d3d9.dll` path as Fallout 3 | [tools/dragonshard/README.md](tools/dragonshard/README.md) |
 
 ### Fallout 3 — key compatibility areas
 
@@ -71,6 +72,7 @@ CI validates every profile under `tools/**/*.dxvk.conf` against the options docu
 | **Dragon Age: Origins** | [`tools/dragon-age-origins/dragon-age-origins.dxvk.conf`](tools/dragon-age-origins/dragon-age-origins.dxvk.conf) | SM3-heavy BioWare RPG |
 | **Galactic Civilizations II** | [`tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf`](tools/galactic-civilizations-ii/galactic-civilizations-ii.dxvk.conf) | Strategy UI / mode-picker coverage |
 | **Grand Theft Auto IV (RAGE)** | [`tools/gta-iv/gta-iv.dxvk.conf`](tools/gta-iv/gta-iv.dxvk.conf) | 32-bit RAGE title; hosting de-risked by d9mt; layers onto the compiled-in GTAIV/EFLC profile |
+| **Dragonshard** | [`tools/dragonshard/dragonshard.dxvk.conf`](tools/dragonshard/dragonshard.dxvk.conf) | 32-bit fixed-function RTS; built-in profile also sets `cachedWriteOnlyBuffers` |
 
 ---
 
@@ -135,7 +137,7 @@ your_app
 | Windows `.exe` via wrapper + SpockD3D9 | **Blocked** | Requires a wrapper/translation layer to host Windows binaries and route D3D9 to SpockD3D9 |
 | Windows `.exe` via Wine + upstream DXVK | Separate project | Use [upstream DXVK](https://github.com/doitsujin/dxvk) with Wine for a proven path today |
 | D3D10 / D3D11 titles | Not supported | Disabled in default SpockD3D9 builds (`enable_d3d9` only) |
-| Retail Steam D3D9 games (e.g., Fallout 3) | **Blocked** | Primary target; see [Fallout 3 tracker](#primary-compatibility-target) above |
+| Retail Steam D3D9 games (e.g., Fallout 3) | **Blocked** | Primary target; see the [benchmark table](#benchmark-compatibility-targets) above |
 
 ---
 

@@ -957,13 +957,15 @@ namespace dxvk {
       { "d3d9.maxFrameLatency",             "1" },
       { "d3d9.deviceLossOnFocusLoss",       "False" },
     }} },
-    /* Fallout New Vegas - Various visual issues  *
-     * in mod New Vegas Reloaded. Nvidia path in  *
-     * same mod use NvAPI_D3D9_StretchRectEx for  *
-     * depth buffer resolves                      */
+    /* Fallout New Vegas. floatEmulation + hideNvidiaGpu are the    *
+     * upstream Reloaded-mod fixes. Refresh and latency match the     *
+     * benchmark profile in tools/fallout-new-vegas so a launch that  *
+     * does not copy that file still enumerates 60 Hz.                */
     { R"(\\Fallout( -)? New Vegas.*\\(FalloutNV)?(Launcher)?\.exe$)", {{
       { "d3d9.floatEmulation",            "Strict" },
       { "d3d9.hideNvidiaGpu",               "True" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",              "1" },
     }} },
     /* Dragon Age: Origins - Windows D3D9 benchmark *
      * title. Mirrors the compat subset of           *
@@ -987,10 +989,15 @@ namespace dxvk {
       { "d3d9.maxFrameLatency",             "1" },
       { "d3d9.deviceLossOnFocusLoss",       "False" },
     }} },
-    /* Dungeons and Dragons: Dragonshard          *
-     * Massive FPS decreases in some scenes       */
+    /* Dungeons and Dragons: Dragonshard. cachedWriteOnlyBuffers *
+     * is the upstream FPS fix. The rest matches                     *
+     * tools/dragonshard/dragonshard.dxvk.conf so the mode picker    *
+     * stays on a short 60 Hz list without copying that file.        */
     { R"(\\Dragonshard\.exe$)", {{
       { "d3d9.cachedWriteOnlyBuffers",      "True" },
+      { "d3d9.modeCountCompatibility",      "True" },
+      { "d3d9.forceRefreshRate",            "60" },
+      { "d3d9.maxFrameLatency",              "1" },
     }} },
     /* Battle for Middle-earth 2 and expansion    *
      * Slowdowns in certain scenarios             */

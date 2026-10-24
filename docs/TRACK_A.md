@@ -118,7 +118,7 @@ export DXVK_LOG_LEVEL=debug   # per-shader detail when debugging compile failure
 |----------|---------|
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Override MoltenVK ICD (usually auto-detected via Homebrew) |
 | `DYLD_LIBRARY_PATH` | Point at custom `libMoltenVK.dylib` / `libvulkan.dylib` |
-| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `2` for MoltenVK argument-buffer descriptors (also set in CI smoke scripts) |
+| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Tier `2` binds the 2048-entry sampler heap. SpockD3D9 sets 2 when this is unset (Apple and the PE DLL). Tier 0 fails the present blitter. Set it only to override |
 | `MVK_CONFIG_RESUME_LOST_DEVICE` | MoltenVK device-loss recovery (rare for D3D9) |
 | `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
 | `MTL_DEBUG_LAYER` | Metal API validation (heavy; use when isolating Metal-side failures) |

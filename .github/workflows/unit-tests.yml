@@ -53,6 +53,13 @@ jobs:
           tests/util/test_homebrew_prefixes.cpp -o test_homebrew_arm
         ./test_homebrew_arm
 
+    - name: Verify MoltenVK argument-buffer default policy
+      run: |
+        g++ -std=c++17 -O2 -Wall -Wextra \
+          -Isrc/util -Iinclude/native/windows -Iinclude/native \
+          tests/util/test_moltenvk_defaults.cpp -o test_moltenvk_defaults
+        ./test_moltenvk_defaults
+
   conf-profiles:
     runs-on: ubuntu-latest
     name: dxvk.conf profiles

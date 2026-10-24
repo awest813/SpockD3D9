@@ -39,25 +39,31 @@ title profile live in [`tools/fallout3/`](../tools/fallout3/).
 experimental Windows `d3d9.dll` for external hosts. Boot-to-menu validation is
 still pending.
 
-## Current audited status (2026-06-04)
+## Current audited status (2026-10-24)
 
 - **Execution model:** Done (native-first translator + optional PE `d3d9.dll`;
   external hosts provide non-D3D9 Win32 services). See
   [FALLOUT3_EXECUTION_MODEL.md](FALLOUT3_EXECUTION_MODEL.md).
 - **Build/packaging scaffolding:** Done for the optional PE path (`enable_pe_d3d9`
-  Meson option, cross file, helper script, CI coverage) and for native profile
-  validation (`tests/conf/test_dxvk_conf_profiles.py`).
-- **Native CI probe:** `d3d9-gamebryo-probe` (Track A / MoltenVK) exercises
+  Meson option, cross file, helper script, CI cross-compile) and for native profile
+  validation (`tests/conf/test_dxvk_conf_profiles.py`). CI checks the PE file
+  signature. It does not load the DLL inside a host.
+- **Native probe:** `d3d9-gamebryo-probe` (Track A / MoltenVK) exercises
   Gamebryo-typical `CreateDevice` parameters; BCn/D24S8/A8L8 format queries;
   RT format availability (A8R8G8B8, R16F, R32F, A16B16G16R16F, A32B32G32R32F);
   display mode enumeration; MSAA checks; SM3 caps; state blocks; occlusion and
   event queries; render states (viewport, scissor, alpha blend, alpha test,
   stencil, fog); vertex buffers (MANAGED + DYNAMIC, lock/fill/draw); 16-bit
-  index buffer + DrawIndexedPrimitive; texture creation/upload (A8R8G8B8 mips +
-  sampler states; DXT1 create); render-to-texture + GetRenderTargetData;
-  fixed-function DrawPrimitiveUP (SPIR-V → MSL); Present; Reset. See
-  [TRACK_A.md](TRACK_A.md). Covers V1–V2 on the native path; DXSO SM2/SM3 on
-  retail shaders, vertex declarations, exclusive fullscreen remain manual.
+  index buffer + DrawIndexedPrimitive; vertex declarations; texture
+  creation/upload (A8R8G8B8 mips + sampler states; DXT1 create);
+  render-to-texture + GetRenderTargetData; fixed-function DrawPrimitiveUP
+  (SPIR-V → MSL); Present; Reset. See [TRACK_A.md](TRACK_A.md). GitHub-hosted
+  macOS runners often cannot present (no adapters, missing Vulkan 1.3
+  features, or AppleParavirt). The workflow then skips that binary and still
+  exits 0. A green Actions run is not a presented frame. The hardware log
+  that did present is macOS 26 / M1 / MoltenVK 1.4.1 / SDL2 / argument buffers
+  2, in [MOLTENVK_CAPABILITIES.md](MOLTENVK_CAPABILITIES.md). Retail shaders
+  and exclusive fullscreen remain manual.
 - **Runtime game milestones:** Retail boot-to-menu (V3+) still unverified on real
   host/game runs. Treat the V1–V10 table below as the active tracker for manual progression.
 - **Operational checklist:** Use [MACOS_TESTING.md](MACOS_TESTING.md) for local
@@ -69,6 +75,12 @@ still pending.
 ## D3D9 subsystem checklist
 
 These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must handle all of them correctly.
+
+A box that says "CI probe" means the native probe calls that API when a GPU
+actually presents. MSAA, timestamp queries, border addressing,
+`GetFrontBufferData`, and volume textures are logged and allowed to fail
+inside the probe, so a check there is not a pass. A skipped GitHub smoke
+binary is not a pass either.
 
 ### Device lifecycle
 
@@ -127,7 +139,7 @@ These are the D3D9 features Fallout 3 / Gamebryo is known to use. SpockD3D9 must
 ### State management
 
 - [x] Render state block (`CreateStateBlock`, `BeginStateBlock`, `EndStateBlock`) — CI probe
-- [x] All render states Gamebryo uses — CI probe covers blend, alpha, stencil, fog, scissor, viewport; full coverage via upstream DXVK
+- [x] Render states the probe sets — blend, alpha, stencil, fog, scissor, viewport. Dither, last-pixel, antialiased lines, and tessellation states are stored and not applied
 - [x] Sampler states (filtering, addressing, LOD bias, max anisotropy) — CI probe (MIN/MAG/MIP LINEAR, WRAP, MAXANISOTROPY=8)
 - [x] Texture stage states — CI probe (COLOROP/COLORARG, ALPHAOP)
 - [x] Stream source management — CI probe (SetStreamSource in VB tests)
@@ -180,8 +192,8 @@ setup. Adjust the commented tuning keys based on test results.
 
 | Milestone | Description | Status |
 |-----------|-------------|--------|
-| **V1 — Library loads** | SpockD3D9 loads and `Direct3DCreate9` returns a valid object | **CI (native)** — `d3d9-gamebryo-probe` |
-| **V2 — Device created** | `CreateDevice` succeeds with Gamebryo's requested parameters | **CI (native)** — `d3d9-gamebryo-probe` |
+| **V1 — Library loads** | SpockD3D9 loads and `Direct3DCreate9` returns a valid object | **Probe, when a GPU presents** — `d3d9-gamebryo-probe`. A skipped GitHub smoke run does not count |
+| **V2 — Device created** | `CreateDevice` succeeds with Gamebryo's requested parameters | **Probe, when a GPU presents** — same binary and same limit as V1 |
 | **V3 — Boot to menu** | Fallout 3 main menu renders and is interactive | **In progress** — [BOOT_TO_MENU.md](BOOT_TO_MENU.md) + host scripts; retail confirmation pending |
 | **V4 — New game loads** | Character creation / Vault 101 intro renders | Not started |
 | **V5 — Outdoor rendering** | Capital Wasteland renders correctly (terrain, NPCs, sky) | Not started |

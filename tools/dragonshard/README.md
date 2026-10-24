@@ -141,9 +141,13 @@ cp dragonshard.dxvk.conf "$GAME_DIR/dxvk.conf"
   WINEDLLOVERRIDES = d3d9=n,b
   DXVK_LOG_LEVEL   = info
   DXVK_LOG_PATH    = <GAME_DIR>
-  MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS = 0
+  MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS = 2
   ```
-  Add `DYLD_LIBRARY_PATH = $(brew --prefix molten-vk)/lib` only if Vulkan is not
+  Tier 2 is required. MoltenVK cannot bind DXVK's 2048-entry sampler heap
+  without Metal argument buffers, and tier 0 fails the present blitter with
+  `cannot reserve 'sampler' resource locations`. The SpockD3D9 DLL sets 2
+  itself when the variable is unset; do not set 0. Add
+  `DYLD_LIBRARY_PATH = $(brew --prefix molten-vk)/lib` only if Vulkan is not
   already wired inside the bottle.
 
 ### 4. Launch and confirm

@@ -57,6 +57,13 @@ namespace dxvk::vk {
   }
 
   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
+    env::defaultMoltenVkArgumentBuffers();
+
+    if (env::moltenVkArgumentBuffersWereDefaulted()) {
+      Logger::info("MoltenVK: MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS unset; using 2 "
+                   "so the 2048-entry sampler heap can bind. Set the variable to override.");
+    }
+
 #if defined(__APPLE__)
     env::prepareDarwinEnvironment();
 #endif

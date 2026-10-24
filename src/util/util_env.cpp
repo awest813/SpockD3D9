@@ -22,6 +22,48 @@
 
 namespace dxvk::env {
 
+  namespace {
+    bool s_moltenVkArgumentBuffersDefaulted = false;
+  }
+
+  void defaultMoltenVkArgumentBuffers() {
+#if defined(__APPLE__) || defined(_WIN32)
+    const char* tier = moltenVkArgumentBufferDefault(
+      std::getenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS"));
+
+    if (!tier)
+      return;
+
+#if defined(_WIN32)
+    if (!SetEnvironmentVariableA("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", tier))
+      return;
+#else
+    if (setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", tier, 0) != 0)
+      return;
+#endif
+    s_moltenVkArgumentBuffersDefaulted = true;
+#endif
+  }
+
+  bool moltenVkArgumentBuffersWereDefaulted() {
+    return s_moltenVkArgumentBuffersDefaulted;
+  }
+
+#if defined(__APPLE__) || defined(_WIN32)
+  namespace {
+    // Runs at DLL/dylib load, before the host calls SDL_Vulkan_LoadLibrary
+    // or Wine maps vulkan-1.dll. Logger is not used here: this constructor
+    // races other static initialization.
+    struct ApplyMoltenVkArgumentBufferDefault {
+      ApplyMoltenVkArgumentBufferDefault() {
+        defaultMoltenVkArgumentBuffers();
+      }
+    };
+
+    static ApplyMoltenVkArgumentBufferDefault s_applyMoltenVkArgumentBufferDefault;
+  }
+#endif
+
   std::string getEnvVar(const char* name) {
 #ifdef _WIN32
     std::vector<WCHAR> result;
@@ -200,7 +242,7 @@ namespace dxvk::env {
           setenv("VK_DRIVER_FILES", manifest.c_str(), 0);
           setenv("VK_ICD_FILENAMES", manifest.c_str(), 0);
           Logger::info(str::format("Vulkan: Using MoltenVK driver manifest ", manifest));
-          return;
+          break;
         }
       }
     }

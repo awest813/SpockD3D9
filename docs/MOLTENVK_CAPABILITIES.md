@@ -152,6 +152,9 @@ MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0:
 ```
 
 Setting `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2` makes the present shader compile.
+SpockD3D9 applies that default at library load on Apple and in the PE
+`d3d9.dll` when the variable is unset, before MoltenVK is opened. A value
+the user already exported, including `0`, is left alone.
 Experimentally lowering `MaxSamplerCount` to 16 also lets the blit shader compile
 with argument buffers **off** — but 16 is below D3D9's worst case (16 PS + 4 VS = 20
 sampler slots), so it is not a safe global fix. A correct fix needs a Metal-aware,

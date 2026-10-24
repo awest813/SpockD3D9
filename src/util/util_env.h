@@ -126,5 +126,35 @@ namespace dxvk::env {
    */
   void prepareDarwinEnvironment();
 #endif
+
+  /**
+   * \brief MoltenVK argument-buffer tier to apply
+   *
+   * DXVK's sampler heap is 2048 entries. MoltenVK can bind that only
+   * through Metal argument buffers, and tier 0 fails the present blitter.
+   * Returns "2" when \c existing is null or empty. Returns nullptr when
+   * the user already set a tier, including "0".
+   */
+  inline const char* moltenVkArgumentBufferDefault(const char* existing) {
+    if (existing != nullptr && existing[0] != '\0')
+      return nullptr;
+
+    return "2";
+  }
+
+  /**
+   * \brief Apply the MoltenVK argument-buffer default
+   *
+   * On Apple, and on Windows (the PE \c d3d9.dll under Wine), sets
+   * \c MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS to 2 when it is unset.
+   * No-op on Linux. Does not override a user value. Safe to call more
+   * than once. Must run before MoltenVK is loaded.
+   */
+  void defaultMoltenVkArgumentBuffers();
+
+  /**
+   * \brief Whether this process applied the argument-buffer default
+   */
+  bool moltenVkArgumentBuffersWereDefaulted();
   
 }

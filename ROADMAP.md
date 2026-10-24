@@ -7,7 +7,7 @@
 The overarching goal is **full compatibility with Windows D3D9 games on macOS**. It breaks down into:
 
 - **Run unmodified Windows D3D9 games on macOS** — close the Win32 compatibility gaps and provide (or integrate with) a host/wrapper layer that routes a game's `d3d9.dll` calls into SpockD3D9
-- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the first retail title, then use **Fallout: New Vegas**, **Dragon Age: Origins**, **Galactic Civilizations II**, and **Grand Theft Auto IV** (hosting de-risked externally by [d9mt](https://github.com/neo773/d9mt), see [tools/gta-iv/README.md](tools/gta-iv/README.md)) as follow-on benchmark titles for broader Windows D3D9 coverage
+- **Achieve playable compatibility with Fallout 3 (Steam, Windows, Gamebryo/D3D9)** as the first retail title, then use **Oblivion**, **Fallout: New Vegas**, **Dragon Age: Origins**, **Galactic Civilizations II**, **Grand Theft Auto IV** (hosting de-risked externally by [d9mt](https://github.com/neo773/d9mt), see [tools/gta-iv/README.md](tools/gta-iv/README.md)), and **Dragonshard** (see [tools/dragonshard/README.md](tools/dragonshard/README.md)) as follow-on benchmark titles for broader Windows D3D9 coverage
 - Ship a rock-solid native `libdxvk_d3d9.dylib` for Apple Silicon (arm64) and Intel Mac (x86_64) — the translation foundation everything else builds on
 - Support SDL2, SDL3, and GLFW for window/surface integration (the native replacement for Win32 windowing)
 - Optimize for Apple tiler GPUs via MoltenVK detection and upstream tiler heuristics
@@ -51,7 +51,7 @@ Near-term MoltenVK priorities that benefit Track A without blocking Track B are 
 | SDL2 / SDL3 / GLFW WSI backends | Done (multi-monitor FS; GLFW borderless partial) |
 | MoltenVK loader (`libvulkan.dylib` / `libMoltenVK.dylib`) | Done (auto-discovers Homebrew prefixes + ICD manifest) |
 | Tiler GPU hints (`VK_DRIVER_ID_MOLTENVK`) | Done (upstream) |
-| Runtime smoke test / sample app | Done (`d3d9-clear` SDL3 + SDL2 fallback, CI smoke step) |
+| Runtime smoke test / sample app | Done on a GPU that can present (`d3d9-clear`, SDL2/SDL3). GitHub-hosted macOS jobs skip the binary when the runner cannot present, and that skip is not coverage |
 | Game compatibility matrix | Partial (`COMPATIBILITY.md` — shipped profiles + samples; per-title macOS runs pending) |
 | macOS EDID / HDR metadata | Done (EDID read on macOS; colorimetry via GetCurrentOutputDesc) |
 | Native D3D9 cursor | Done (SDL2/SDL3/GLFW HW + software compositing) |
