@@ -318,7 +318,7 @@ pipeline creations in the log.
 | `DYLD_LIBRARY_PATH` | Locate freshly built `libdxvk_d3d9.dylib` |
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Override MoltenVK ICD (usually auto-detected) |
 | `WINEDLLOVERRIDES` | `d3d9=n,b` to load SpockD3D9 PE DLL in Wine hosts |
-| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Set `2` for MoltenVK argument-buffer descriptors on current macOS runners |
+| `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS` | Tier `2` binds the 2048-entry sampler heap. The library sets 2 when this is unset. Do not set 0 |
 | `MVK_CONFIG_DEBUG` | Extra MoltenVK logging |
 | `MTL_DEBUG_LAYER` | Metal API validation (heavy; isolate Metal-side failures) |
 
